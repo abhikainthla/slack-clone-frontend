@@ -6,22 +6,20 @@ import Workspace from "./pages/Workspace";
 import MainLayout from "./components/layout/MainLayout";
 
 function App() {
-
   return (
     <BrowserRouter>
-
       <Routes>
 
-        <Route path="/" element={<MainLayout/>} />
-
         <Route path="/login" element={<Login />} />
-
         <Route path="/register" element={<Register />} />
 
-        <Route path="/workspace/:id" element={<Workspace />} />
+        {/* Workspace selection */}
+        <Route path="/workspace" element={<Workspace />} />
+
+        {/* Main App Layout */}
+        <Route path="/workspace/:id" element={<MainLayout />} />
 
       </Routes>
-
     </BrowserRouter>
   );
 }
