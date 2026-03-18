@@ -1,8 +1,9 @@
 import { create } from "zustand";
+import api from "../api/axios";
 
 const useAuthStore = create((set) => ({
   user: null,
-  token: localStorage.getItem("token") || null,
+   token: null,
 
   setAuth: (user, token) => {
     localStorage.setItem("token", token);
@@ -12,6 +13,16 @@ const useAuthStore = create((set) => ({
   logout: () => {
     localStorage.removeItem("token");
     set({ user: null, token: null });
+  },
+
+  hydrateUser: async () => {
+    try {
+      const res = await api.get("/auth/me");
+      set({ user: res.data });
+    } catch (err) {
+      console.error("Auth hydrate failed");
+      set({ user: null });
+    }
   },
 }));
 
