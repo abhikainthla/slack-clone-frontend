@@ -34,49 +34,51 @@ export default function Register() {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-100">
-      <form className="bg-white p-8 rounded-2xl shadow-lg w-[350px]" onSubmit={handleSubmit}>
-        <h1 className="text-2xl font-bold mb-6 text-center">
-          Create Account 🚀
-        </h1>
+    <div className="h-screen grid grid-cols-2">
+      <div className="bg-gradient-to-b from-[#0f172a] to-[#020617] text-white flex flex-col justify-center px-20">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+            💬
+          </div>
+          <h1 className="text-2xl font-bold">SynCube</h1>
+        </div>
 
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        <p className="text-gray-300 mb-8 max-w-md">
+          Where teams come together. Real-time messaging,
+          channels, threads, and more — all in one place.
+        </p>
 
-        <input
-          type="text"
-          name="name"
-          placeholder="Full Name"
-          className="w-full mb-4 px-4 py-2 border rounded-lg"
-          onChange={handleChange}
-        />
+        <ul className="space-y-4 text-gray-400">
+          <li># Organize conversations in channels</li>
+          <li>💬 Thread replies for focused discussions</li>
+          <li>👥 Collaborate with your team in real-time</li>
+        </ul>
+      </div>
+      <div className="flex items-center justify-center bg-gray-100">
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          className="w-full mb-4 px-4 py-2 border rounded-lg"
-          onChange={handleChange}
-        />
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          className="w-full mb-4 px-4 py-2 border rounded-lg"
-          onChange={handleChange}
-        />
+      <form className="bg-white p-8 rounded-2xl shadow w-[380px]" onSubmit={handleSubmit}>
+        <h2 className="text-2xl font-semibold mb-1">Create your account</h2>
+        <p className="text-gray-500 mb-6">
+          Get started with TeamChat
+        </p>
 
-        <button className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">
-          {loading ? "Creating..." : "Register"}
+        <input name="name" placeholder="Your name" className="w-full mb-4 px-4 py-2 border rounded-lg"  />
+        <input name="email" placeholder="you@example.com" className="w-full mb-4 px-4 py-2 border rounded-lg" />
+        <input name="password" placeholder="••••••••" className="w-full mb-4 px-4 py-2 border rounded-lg" />
+
+        <button className="w-full bg-purple-600 text-white py-2 rounded-lg">
+          {loading ? "Creating..." : "Create Account"}
         </button>
 
         <p className="text-sm text-center mt-4">
           Already have an account?{" "}
           <Link to="/login" className="text-purple-600">
-            Login
+            Sign in
           </Link>
         </p>
       </form>
+            </div>
     </div>
   );
 }

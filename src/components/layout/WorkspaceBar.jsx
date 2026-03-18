@@ -7,6 +7,19 @@ import useAuthStore from "../../store/authStore";
 import { LogOut, Plus } from "lucide-react";
 
 export default function WorkspaceBar() {
+  const [desc, setDesc] = useState("");
+  const [color, setColor] = useState("bg-purple-500");
+
+  const colors = [
+    "bg-indigo-500",
+    "bg-pink-500",
+    "bg-yellow-500",
+    "bg-green-500",
+    "bg-blue-500",
+    "bg-purple-500",
+    "bg-red-500",
+    "bg-teal-500",
+  ];
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -92,34 +105,75 @@ export default function WorkspaceBar() {
             <Popover.Content
               side="right"
               align="center"
-              className="bg-white p-4 rounded-xl shadow-lg w-48 border"
+              className="bg-white p-5 rounded-xl shadow-xl w-64 border"
             >
-              <p className="text-sm font-medium mb-2">
-                New Workspace
-              </p>
 
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Workspace name"
-                className="w-full border px-2 py-1 rounded text-sm mb-3 outline-none focus:ring-2 focus:ring-purple-500"
-                autoFocus
-              />
+              <h3 className="text-sm font-semibold mb-3">
+                Create Workspace
+              </h3>
 
+              {/* NAME */}
+              <div className="mb-3">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Workspace Name
+                </label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Design Team"
+                  className="w-full border px-3 py-2 rounded-lg text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                />
+              </div>
+
+              {/* DESCRIPTION */}
+              <div className="mb-3">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Description
+                </label>
+                <textarea
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                  placeholder="Optional..."
+                  className="w-full border px-3 py-2 rounded-lg text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  rows={2}
+                />
+              </div>
+
+              {/* COLOR PICKER */}
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 mb-2 block">
+                  Color
+                </label>
+
+                <div className="flex flex-wrap gap-2">
+                  {colors.map((c) => (
+                    <div
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className={`w-7 h-7 rounded-md cursor-pointer ${c} ${
+                        color === c ? "ring-2 ring-blue-600" : ""
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* ACTION */}
               <button
                 onClick={handleCreate}
                 disabled={loading || !name.trim()}
-                className={`w-full py-1 rounded text-sm text-white ${
+                className={`w-full py-2 rounded-lg text-sm text-white transition ${
                   loading || !name.trim()
                     ? "bg-gray-400"
                     : "bg-purple-600 hover:bg-purple-700"
                 }`}
               >
-                {loading ? "Creating..." : "Create"}
+                {loading ? "Creating..." : "Create Workspace"}
               </button>
 
               <Popover.Arrow className="fill-white" />
             </Popover.Content>
+
           </Popover.Portal>
         </Popover.Root>
 
