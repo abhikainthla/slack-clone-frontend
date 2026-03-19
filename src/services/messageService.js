@@ -1,17 +1,65 @@
 import api from "../api/axios";
 
-export const sendMessage = (data) => {
-  return api.post("/messages", data);
-};
+/* MESSAGE */
+export const sendMessage = (data) => api.post("/messages", data);
+export const getMessages = (channelId) =>
+  api.get(`/messages/${channelId}`);
 
-export const getMessages = (channelId) => {
-  return api.get(`/messages/${channelId}`);
-};
+/* MARK AS READ */
+export const markAsRead = (channelId, messageId = null) =>
+  api.post(`/messages/read/${channelId}`, { messageId });
 
-export const searchMessages = (query) => {
-  return api.get(`/messages/search?q=${query}`);
-};
+/* ================= REACTIONS ================= */
 
-export const markAsRead = (channelId) => {
-  return api.post(`/messages/read/${channelId}`);
+/**
+ * Backend already handles:
+ * - add
+ * - replace
+ * - remove (toggle)
+ */
+export const addReaction = (messageId, emoji) =>
+  api.post(`/messages/reaction/${messageId}`, { emoji });
+
+/**
+ * OPTIONAL: separate remove API (if you want explicit remove)
+ * Otherwise you DON'T NEED THIS because addReaction already toggles
+ */
+export const removeReaction = (messageId, emoji) =>
+  api.post(`/messages/reaction/${messageId}`, { emoji }); // same endpoint (toggle)
+
+/* ================= PIN ================= */
+
+export const pinMessage = (messageId) =>
+  api.put(`/messages/pin/${messageId}`);
+
+export const unpinMessage = (messageId) =>
+  api.put(`/messages/unpin/${messageId}`);
+
+/* ================= BOOKMARK ================= */
+
+/**
+ * IMPORTANT: Your backend supports toggleBookmark
+ * so use ONE API only
+ */
+export const toggleBookmark = (messageId) =>
+  api.post(`/bookmarks/toggle/${messageId}`);
+
+/**
+ * (Optional legacy support if used elsewhere)
+ */
+export const bookmarkMessage = (messageId) =>
+  api.post(`/bookmarks/${messageId}`);
+
+export const removeBookmark = (messageId) =>
+  api.delete(`/bookmarks/${messageId}`);
+
+/* ================= FILE ================= */
+
+export const uploadFile = (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return api.post("/messages/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 };

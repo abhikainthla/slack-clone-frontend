@@ -1,34 +1,24 @@
-const users = [
-  { name: "Sarah Chen", unread: 2 },
-  { name: "Marcus Johnson" },
-  { name: "Emily Park" },
-  { name: "David Kim", unread: 1 }
-];
+import useChatStore from "../../store/chatStore";
 
 export default function DirectMessages() {
+  const workspace = useChatStore((s) => s.workspace);
+
+  const members = workspace?.members || [];
+
   return (
     <div>
-
       <p className="text-xs text-gray-400 mb-2">
         DIRECT MESSAGES
       </p>
 
-      {users.map((user) => (
+      {members.map((m) => (
         <div
-          key={user.name}
+          key={m.user._id}
           className="flex justify-between px-2 py-1 rounded hover:bg-gray-100 cursor-pointer"
         >
-          <span>{user.name}</span>
-
-          {user.unread && (
-            <span className="text-xs bg-indigo-100 text-indigo-600 px-2 rounded-full">
-              {user.unread}
-            </span>
-          )}
-
+          <span>{m.user.name}</span>
         </div>
       ))}
-
     </div>
   );
 }

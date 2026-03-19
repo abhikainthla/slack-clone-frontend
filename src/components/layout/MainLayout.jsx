@@ -1,12 +1,11 @@
 import WorkspaceBar from "./WorkspaceBar";
 import Sidebar from "./Sidebar";
 import ChatHeader from "../chat/ChatHeader";
-import MessageList from "../chat/MessageList";
-import MessageInput from "../chat/MessageInput";
+import ChatWindow from "../chat/ChatWindow";
 
 export default function MainLayout() {
   return (
-    <div className="h-screen flex bg-[#f8fafc]">
+    <div className="h-screen flex bg-[#f8fafc] overflow-hidden">
 
       <WorkspaceBar />
 
@@ -16,10 +15,7 @@ export default function MainLayout() {
 
         <ChatHeader />
 
-        <MessageList />
-
-        <MessageInput />
-
+        <ChatWindow/>
       </div>
 
     </div>

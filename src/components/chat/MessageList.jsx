@@ -1,48 +1,92 @@
-import { useEffect } from "react";
-import MessageItem from "./MessageItem";
-import useChatStore from "../../store/chatStore";
+import { useEffect, useRef, useState } from "react";
 import { getMessages } from "../../services/messageService";
+import useChatStore from "../../store/chatStore";
+import MessageItem from "./MessageItem";
 import socket from "../../socket/socket";
+import { MessageCircleWarning } from "lucide-react";
 
 export default function MessageList() {
-  const activeChannel = useChatStore((s) => s.activeChannel);
-  const messages = useChatStore((s) => s.messages);
-  const setMessages = useChatStore((s) => s.setMessages);
-  const addMessage = useChatStore((s) => s.addMessage);
+  const { activeChannel, messages, setMessages } = useChatStore();
+  const messagesEndRef = useRef(null);
+  const [typingUsers, setTypingUsers] = useState([]);
+
+useEffect(() => {
+  socket.on("typing", ({ user }) => {
+    setTypingUsers((prev) => [...new Set([...prev, user])]);
+
+    setTimeout(() => {
+      setTypingUsers((prev) => prev.filter((u) => u !== user));
+    }, 2000);
+  });
+
+  return () => socket.off("typing");
+}, []);
+
+
+  /* ================= FETCH MESSAGES ================= */
 
   useEffect(() => {
-    if (!activeChannel) return;
+  socket.on("receive_message", (newMessage) => {
+    setMessages((prev) => [...prev, newMessage]);
+  });
+
+  return () => socket.off("receive_message");
+}, [setMessages]);
+
+
+  useEffect(() => {
+    if (!activeChannel?._id) return;
 
     const fetchMessages = async () => {
-      const res = await getMessages(activeChannel._id);
-      setMessages(res.data);
+      try {
+        const res = await getMessages(activeChannel._id);
+
+        //  backend sends latest first → reverse
+        const data = Array.isArray(res.data)
+          ? res.data
+          : res.data.messages || [];
+
+        setMessages(data.reverse());
+
+      } catch (err) {
+        console.error("Failed to fetch messages:", err);
+      }
     };
 
     fetchMessages();
+  }, [activeChannel, setMessages]);
 
-    socket.connect();
-    socket.emit("join_channel", activeChannel._id);
-
-    socket.on("receive_message", (msg) => {
-      addMessage(msg);
-    });
-
-    return () => {
-      socket.off("receive_message");
-    };
-  }, [activeChannel]);
+  /* ================= AUTO SCROLL ================= */
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView();
+  }, [messages]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+  <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-3 bg-gray-50 overscroll-contain">
+    {messages?.length > 0 ? (
+      Array.isArray(messages) &&
+      messages.map((msg) =>
+        msg?._id ? <MessageItem key={msg._id} message={msg} /> : null
+      )
+    ) : (
+        <div className="flex items-center justify-center h-full w-full">
+          <p className="flex items-center gap-2 text-gray-400 text-sm">
+            <MessageCircleWarning size={18} />
+            Choose a channel or dm 
+          </p>
+        </div>
 
-      {!activeChannel && (
-        <p className="text-gray-400">Select a channel</p>
-      )}
+    )}
 
-      {messages.map((msg) => (
-        <MessageItem key={msg._id} message={msg} />
-      ))}
+    {/* Typing indicator */}
+    {typingUsers.length > 0 && (
+      <p className="text-xs text-gray-400 px-2">
+        {typingUsers.join(", ")} typing...
+      </p>
+    )}
 
-    </div>
-  );
+    <div ref={messagesEndRef} />
+  </div>
+);
+
 }

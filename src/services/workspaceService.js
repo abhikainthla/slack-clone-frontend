@@ -13,7 +13,7 @@ export const getWorkspaceById = (id) => {
 };
 
 export const inviteToWorkspace = (id, email) => {
-  return api.post(`/workspaces/${id}/invite`, { email });
+  return api.post(`/workspaces/invite/${id}`, { email });
 };
 
 export const markWorkspaceRead = (id) => {

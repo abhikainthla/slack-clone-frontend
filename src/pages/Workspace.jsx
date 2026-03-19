@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import useAuthStore from "../store/authStore";
 import api from "../api/axios";
 import CreateWorkspaceModal from "../components/modals/CreateWorkspaceModal";
+import { LogOut } from "lucide-react";
 
 export default function Workspace() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -45,7 +46,7 @@ export default function Workspace() {
     }
   };
 
-  // 🔥 count notifications per workspace
+  //  count notifications per workspace
   const getWorkspaceNotificationCount = (workspaceId) => {
     return notifications.filter(
       (n) => n?.message?.workspace === workspaceId
@@ -56,10 +57,10 @@ export default function Workspace() {
     <div className="h-screen bg-gray-50">
 
       {/* HEADER */}
-      <div className="flex justify-between items-center px-8 py-4 border-b bg-white">
+      <div className="flex justify-between items-center px-20 py-4 border-b bg-white">
         <h1 className="text-xl font-semibold">Your Workspaces</h1>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
           <span className="text-sm text-gray-600">
             {user?.email}
           </span>
@@ -68,15 +69,26 @@ export default function Workspace() {
               localStorage.removeItem("token");
               window.location.href = "/login";
             }}
-            className="text-sm text-red-500"
+            className="
+              flex items-center gap-2 
+              px-4 py-2 
+              rounded-md 
+              text-sm font-medium 
+              text-red-700 
+              border border-red-500
+              hover:bg-red-300 border-none
+              focus:outline-none focus:ring-2 focus:ring-red-300
+              transition-colors
+            "
           >
+            <LogOut size={20} />
             Sign Out
           </button>
         </div>
       </div>
 
       {/* CONTENT */}
-      <div className="p-8">
+      <div className="py-8 px-20">
         <div className="flex justify-between items-center mb-6">
           <p className="text-gray-500">
             WORKSPACES ({workspaces.length})

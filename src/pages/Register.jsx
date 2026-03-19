@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { registerUser } from "../services/authService";
 import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -10,9 +11,9 @@ export default function Register() {
     email: "",
     password: "",
   });
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -44,8 +45,7 @@ export default function Register() {
         </div>
 
         <p className="text-gray-300 mb-8 max-w-md">
-          Where teams come together. Real-time messaging,
-          channels, threads, and more — all in one place.
+          Where teams come together. Real-time messaging, channels, threads, and more — all in one place.
         </p>
 
         <ul className="space-y-4 text-gray-400">
@@ -54,31 +54,58 @@ export default function Register() {
           <li>👥 Collaborate with your team in real-time</li>
         </ul>
       </div>
+
       <div className="flex items-center justify-center bg-gray-100">
+        <form
+          className="bg-white p-8 rounded-2xl shadow w-[380px]"
+          onSubmit={handleSubmit}
+        >
+          <h2 className="text-2xl font-semibold mb-1">Create your account</h2>
+          <p className="text-gray-500 mb-6">Get started with TeamChat</p>
 
+          <input
+            name="name"
+            placeholder="Your name"
+            className="w-full mb-4 px-4 py-2 border rounded-lg"
+            onChange={handleChange}
+          />
+          <input
+            name="email"
+            placeholder="you@example.com"
+            className="w-full mb-4 px-4 py-2 border rounded-lg"
+            onChange={handleChange}
+          />
 
-      <form className="bg-white p-8 rounded-2xl shadow w-[380px]" onSubmit={handleSubmit}>
-        <h2 className="text-2xl font-semibold mb-1">Create your account</h2>
-        <p className="text-gray-500 mb-6">
-          Get started with TeamChat
-        </p>
+          {/* Password input with toggle */}
+          <div className="relative mb-4">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              placeholder="••••••••"
+              className="w-full px-4 py-2 border rounded-lg pr-10"
+              onChange={handleChange}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
-        <input name="name" placeholder="Your name" className="w-full mb-4 px-4 py-2 border rounded-lg"  />
-        <input name="email" placeholder="you@example.com" className="w-full mb-4 px-4 py-2 border rounded-lg" />
-        <input name="password" placeholder="••••••••" className="w-full mb-4 px-4 py-2 border rounded-lg" />
+          <button className="w-full bg-purple-600 text-white py-2 rounded-lg">
+            {loading ? "Creating..." : "Create Account"}
+          </button>
 
-        <button className="w-full bg-purple-600 text-white py-2 rounded-lg">
-          {loading ? "Creating..." : "Create Account"}
-        </button>
-
-        <p className="text-sm text-center mt-4">
-          Already have an account?{" "}
-          <Link to="/login" className="text-purple-600">
-            Sign in
-          </Link>
-        </p>
-      </form>
-            </div>
+          <p className="text-sm text-center mt-4">
+            Already have an account?{" "}
+            <Link to="/login" className="text-purple-600">
+              Sign in
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

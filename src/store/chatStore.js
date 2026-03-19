@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { enrichChannel } from "../utils/channelUtils";
 
 const useChatStore = create((set, get) => ({
-  /* STATE */
+  // State
   workspace: null,
   workspaces: [],
   channels: [],
@@ -10,56 +10,118 @@ const useChatStore = create((set, get) => ({
   messages: [],
   userId: null,
 
-  /* WORKSPACE */
+  // Workspace actions
   setWorkspace: (workspace) => set({ workspace }),
-
   setWorkspaces: (workspaces) => set({ workspaces }),
-
   addWorkspace: (workspace) =>
     set((state) => ({
       workspaces: [workspace, ...state.workspaces],
     })),
 
-  /* USER */
+  // User actions
   setUserId: (userId) => set({ userId }),
 
-  /* CHANNELS */
+  // Channel actions
   setChannels: (channels, userId = get().userId) =>
     set((state) => {
-      const updated =
-        typeof channels === "function"
-          ? channels(state.channels)
-          : channels;
-
-      const enriched = userId
-        ? updated.map((ch) => enrichChannel(ch, userId))
-        : updated;
-
+      const updated = typeof channels === "function" ? channels(state.channels) : channels;
+      const enriched = userId ? updated.map((ch) => enrichChannel(ch, userId)) : updated;
       return { channels: enriched };
     }),
 
-  /* ACTIVE CHANNEL */
   setActiveChannel: (channel, userId = get().userId) => {
     if (!channel || !channel._id) {
       return set({ activeChannel: null, messages: [] });
     }
-
-    const finalChannel = userId
-      ? enrichChannel(channel, userId)
-      : channel;
-
+    const finalChannel = userId ? enrichChannel(channel, userId) : channel;
     set({
       activeChannel: finalChannel,
       messages: [],
     });
   },
 
-  /* MESSAGES */
-  setMessages: (messages) => set({ messages }),
-
+  // Message actions
+  setMessages: (messages) =>
+  set((state) => ({
+    messages:
+      typeof messages === "function"
+        ? messages(state.messages)
+        : messages,
+  })),
+  
   addMessage: (message) =>
+    set((state) => {
+      // Prevent duplicates
+      const exists = state.messages.find((m) => m._id === message._id);
+      if (exists) return state;
+      
+      return {
+        messages: [...state.messages, message],
+      };
+    }),
+
+  clearMessages: () => set({ messages: [] }),
+
+  updateMessage: (updatedMessage) =>
+  set((state) => ({
+    messages: state.messages.map((m) => {
+      if (m._id !== updatedMessage._id) return m;
+
+      return {
+        ...m,
+        ...updatedMessage,
+        sender: updatedMessage.sender || m.sender, //  preserve sender
+      };
+    }),
+  })),
+
+
+  // Reaction actions (optimistic updates)
+toggleReactionLocal: (messageId, emoji, userId) =>
+  set((state) => ({
+    messages: state.messages.map((m) => {
+      if (m._id !== messageId) return m;
+
+      let reactions = [...(m.reactions || [])];
+
+      const index = reactions.findIndex((r) => r.user === userId);
+
+      if (index !== -1) {
+        if (reactions[index].emoji === emoji) {
+          reactions.splice(index, 1);
+        } else {
+          reactions[index].emoji = emoji;
+        }
+      } else {
+        reactions.push({ emoji, user: userId });
+      }
+
+      return { ...m, reactions };
+    }),
+  })),
+
+toggleBookmarkLocal: (messageId) =>
+  set((state) => ({
+    messages: state.messages.map((m) =>
+      m._id === messageId
+        ? { ...m, bookmarked: !m.bookmarked }
+        : m
+    ),
+  })),
+
+
+
+  // Additional useful actions
+  removeMessage: (messageId) =>
     set((state) => ({
-      messages: [...state.messages, message],
+      messages: state.messages.filter((m) => m._id !== messageId),
+    })),
+
+  setMessageEdited: (messageId, edited = true) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m._id === messageId ? { ...m, edited } : m
+      ),
     })),
 }));
 

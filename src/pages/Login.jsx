@@ -2,6 +2,7 @@ import { useState } from "react";
 import { loginUser } from "../services/authService";
 import { useNavigate, Link } from "react-router-dom";
 import useAuthStore from "../store/authStore";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // Toggle state
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -32,7 +34,6 @@ export default function Login() {
 
   return (
     <div className="h-screen grid grid-cols-2">
-      
       {/* LEFT PANEL */}
       <div className="bg-gradient-to-b from-[#0f172a] to-[#020617] text-white flex flex-col justify-center px-20">
         <div className="flex items-center gap-3 mb-6">
@@ -43,8 +44,7 @@ export default function Login() {
         </div>
 
         <p className="text-gray-300 mb-8 max-w-md">
-          Where teams come together. Real-time messaging,
-          channels, threads, and more — all in one place.
+          Where teams come together. Real-time messaging, channels, threads, and more — all in one place.
         </p>
 
         <ul className="space-y-4 text-gray-400">
@@ -61,13 +61,9 @@ export default function Login() {
           className="bg-white p-8 rounded-2xl shadow w-[380px]"
         >
           <h2 className="text-2xl font-semibold mb-1">Welcome back</h2>
-          <p className="text-gray-500 mb-6">
-            Sign in to your workspace
-          </p>
+          <p className="text-gray-500 mb-6">Sign in to your workspace</p>
 
-          {error && (
-            <p className="text-red-500 text-sm mb-4">{error}</p>
-          )}
+          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
           <input
             type="email"
@@ -77,13 +73,23 @@ export default function Login() {
             onChange={handleChange}
           />
 
-          <input
-            type="password"
-            name="password"
-            placeholder="••••••••"
-            className="w-full mb-4 px-4 py-2 border rounded-lg"
-            onChange={handleChange}
-          />
+          {/* Password input with toggle */}
+          <div className="relative mb-4">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              placeholder="••••••••"
+              className="w-full px-4 py-2 border rounded-lg pr-10"
+              onChange={handleChange}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
           <button className="w-full bg-purple-600 text-white py-2 rounded-lg">
             {loading ? "Signing in..." : "Sign In"}
