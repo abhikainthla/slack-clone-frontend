@@ -12,7 +12,7 @@ export default function BookmarksPage() {
     fetch();
   }, []);
   const handleRemove = async (id) => {
-  await api.post(`/bookmarks/toggle/${id}`);
+  await api.post(`/bookmarks/${id}`);;
   setBookmarks((prev) => prev.filter((b) => b.message._id !== id));
 };
 
@@ -20,9 +20,9 @@ export default function BookmarksPage() {
     <div className="p-6">
       <h2 className="text-xl font-semibold mb-4">⭐ Bookmarks</h2>
 
-      {bookmarks.map((b) => (
-        <div key={b._id} className="mb-3 p-3 bg-gray-100 rounded">
-          <p className="text-sm">{b.message?.content}</p>
+      {bookmarks.map((m) => (
+        <div key={m._id} className="mb-3 p-3 bg-gray-100 rounded">
+          <p className="text-sm">{m.content}</p>
         </div>
       ))}
     </div>

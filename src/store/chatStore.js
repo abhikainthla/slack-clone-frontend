@@ -70,10 +70,13 @@ const useChatStore = create((set, get) => ({
       return {
         ...m,
         ...updatedMessage,
-        sender: updatedMessage.sender || m.sender, //  preserve sender
+        reactions: updatedMessage.reactions || m.reactions,
+        bookmarkedBy: updatedMessage.bookmarkedBy || m.bookmarkedBy,
+        sender: updatedMessage.sender || m.sender,
       };
     }),
   })),
+
 
 
   // Reaction actions (optimistic updates)
@@ -100,13 +103,34 @@ toggleReactionLocal: (messageId, emoji, userId) =>
     }),
   })),
 
-toggleBookmarkLocal: (messageId) =>
+toggleBookmarkLocal: (messageId, userId) =>
   set((state) => ({
-    messages: state.messages.map((m) =>
-      m._id === messageId
-        ? { ...m, bookmarked: !m.bookmarked }
-        : m
-    ),
+    messages: state.messages.map((m) => {
+      if (m._id !== messageId) return m;
+      
+      const bookmarkedBy = [...(m.bookmarkedBy || [])];
+      const index = bookmarkedBy.findIndex(
+        (id) => id.toString() === userId
+      );
+
+      if (index !== -1) {
+        bookmarkedBy.splice(index, 1);
+      } else {
+        bookmarkedBy.push(userId);
+      }
+
+      return { ...m, bookmarkedBy };
+    }),
+  })),
+
+  onlineUsers: {},
+
+setUserStatus: (userId, status) =>
+  set((state) => ({
+    onlineUsers: {
+      ...state.onlineUsers,
+      [userId]: status,
+    },
   })),
 
 

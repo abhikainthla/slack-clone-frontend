@@ -184,15 +184,21 @@ const handleSlashCommand = async () => {
       content = res.data.url;
     }
 
-    const tempMessage = {
-      _id: Date.now(),
-      content,
-      sender: user,
-      createdAt: new Date().toISOString(),
-      reactions: [],
-    };
+    const tempId = Date.now();
 
-    useChatStore.getState().setMessages((prev) => [...prev, tempMessage]);
+      const tempMessage = {
+        _id: tempId,
+        tempId,
+        content,
+        sender: {
+          _id: user._id,
+          name: user.name,
+        },
+        createdAt: new Date().toISOString(),
+        reactions: [],
+      };
+
+      useChatStore.getState().setMessages((prev) => [...prev, tempMessage]);
 
     const res = await sendMessage({
       channelId: activeChannel._id,
@@ -203,9 +209,13 @@ const handleSlashCommand = async () => {
       channelId: activeChannel._id,
       message: {
         ...res.data,
-        sender: user,
+        tempId, 
+        sender: {
+          _id: user._id,
+          name: user.name,
+        },
       },
-    });
+    })
 
     // reset
     setText("");
@@ -221,12 +231,29 @@ const handleSlashCommand = async () => {
 
 
 
-  const handleTyping = () => {
+const typingTimeoutRef = useRef(null);
+
+
+const emitTyping = () => {
   socket.emit("typing", {
     channelId: activeChannel._id,
     user: user.name,
   });
+
+  if (typingTimeoutRef.current) {
+    clearTimeout(typingTimeoutRef.current);
+  }
+
+  typingTimeoutRef.current = setTimeout(() => {
+    socket.emit("stop_typing", {
+      channelId: activeChannel._id,
+      user: user.name,
+    });
+  }, 1500);
 };
+
+
+
 
   /* ================= ENTER SEND ================= */
   const handleKeyPress = (e) => {
@@ -244,7 +271,7 @@ const handleSlashCommand = async () => {
         onDragOver={handleDragOver}
         className="absolute bottom-4 left-0 w-full flex justify-center px-4"
       >
-        <div className="w-full max-w-3xl bg-white border shadow-xl rounded-2xl px-3 py-2">
+        <div className="w-full max-w-3xl bg-white border shadow-xl  rounded-2xl px-3 py-2">
 
           {/* INPUT ROW */}
           <div className="flex items-end gap-2">
@@ -275,7 +302,7 @@ const handleSlashCommand = async () => {
               onChange={(e) => {
                 setText(e.target.value);
                 handleChange(e);
-                handleTyping();
+                emitTyping();
               }}
               onKeyDown={handleKeyPress}
               placeholder={`Message #${activeChannel.name}`}

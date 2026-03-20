@@ -37,21 +37,12 @@ export const unpinMessage = (messageId) =>
 
 /* ================= BOOKMARK ================= */
 
-/**
- * IMPORTANT: Your backend supports toggleBookmark
- * so use ONE API only
- */
 export const toggleBookmark = (messageId) =>
-  api.post(`/bookmarks/toggle/${messageId}`);
-
-/**
- * (Optional legacy support if used elsewhere)
- */
-export const bookmarkMessage = (messageId) =>
   api.post(`/bookmarks/${messageId}`);
 
-export const removeBookmark = (messageId) =>
-  api.delete(`/bookmarks/${messageId}`);
+export const getBookmarks = () =>
+  api.get(`/bookmarks`);
+
 
 /* ================= FILE ================= */
 

@@ -12,8 +12,14 @@ export const getWorkspaceById = (id) => {
   return api.get(`/workspaces/${id}`);
 };
 
-export const inviteToWorkspace = (id, email) => {
-  return api.post(`/workspaces/invite/${id}`, { email });
+// Generate a random link
+export const generateInviteLink = (workspaceId) => {
+  return api.post(`/workspaces/${workspaceId}/invite-link`);
+};
+
+// Join via a token
+export const joinWorkspace = (token) => {
+  return api.post(`/workspaces/join/${token}`);
 };
 
 export const markWorkspaceRead = (id) => {

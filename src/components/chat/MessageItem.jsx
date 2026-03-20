@@ -11,7 +11,7 @@ import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
 import Prism from "prismjs";
 import "prismjs/themes/prism.css";
-import { Bookmark, BookmarkX, Pin, PinOff, SmilePlus } from "lucide-react";
+import { Bookmark, BookmarkX, Check, CheckCheck, Pin, PinOff, SmilePlus } from "lucide-react";
 
 
 export default function MessageItem({ message }) {
@@ -23,6 +23,19 @@ export default function MessageItem({ message }) {
   const updateMessage = useChatStore((s) => s.updateMessage);
   const toggleReactionLocal = useChatStore((s) => s.toggleReactionLocal);
   const toggleBookmarkLocal = useChatStore((s) => s.toggleBookmarkLocal);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
+  const isBookmarked = message.bookmarkedBy?.some(
+    (id) => id.toString() === user?._id
+  );
+
+  const isOnline = onlineUsers[message?.sender?._id] === "online";
+  const isMine = message.sender?._id === user?._id;
+  const isRead = message.readBy?.some(
+    (r) => r.user !== user?._id // someone else read it
+  );
+
+
+
 
   const codeRef = useRef();
 
@@ -43,49 +56,37 @@ export default function MessageItem({ message }) {
 
   /* ================= REACTION ================= */
   const handleReaction = async (emoji) => {
-    if (!user) return;
+  if (!user) return;
 
-    toggleReactionLocal(message._id, emoji, user._id);
-
-    try {
-      const res = await addReaction(message._id, emoji);
-      updateMessage({
-          ...res.data,
-          sender: message.sender, //  keep sender
-        });
-
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  /* ================= PIN ================= */
-  const handlePin = async () => {
-  const updated = { ...message, pinned: !message.pinned };
-
-  //  optimistic UI
-  updateMessage(updated);
+  toggleReactionLocal(message._id, emoji, user._id);
 
   try {
-    const res = message.pinned
-      ? await unpinMessage(message._id)
-      : await pinMessage(message._id);
-
-    //  fallback if backend sends full message
-    if (res?.data?._id) {
-      updateMessage({
-        ...res.data,
-        sender: message.sender, //  preserve sender
-      });
-    }
-
+    await addReaction(message._id, emoji);
   } catch (err) {
-    console.error("Pin failed:", err);
-
-    //  revert on error
-    updateMessage(message);
+    console.error(err);
   }
 };
+
+
+
+  /* ================= PIN ================= */
+const handlePin = async () => {
+  updateMessage({ ...message, pinned: !message.pinned });
+
+  try {
+    if (message.pinned) {
+      await unpinMessage(message._id);
+    } else {
+      await pinMessage(message._id);
+    }
+  } catch (err) {
+    console.error(err);
+    updateMessage({ ...message, pinned: message.pinned });
+  }
+};
+
+
+
 
 const renderContent = (text) => {
   if (!text) return null;
@@ -111,27 +112,33 @@ const renderContent = (text) => {
 
 
   /* ================= BOOKMARK ================= */
-  const handleBookmark = async () => {
-    toggleBookmarkLocal(message._id);
+const handleBookmark = async () => {
+  if (!user) return;
+  
+  toggleBookmarkLocal(message._id, user._id);
 
-    try {
-      const res = await toggleBookmark(message._id);
+  try {
+    await toggleBookmark(message._id);
+  } catch (err) {
+    console.error(err);
+    toggleBookmarkLocal(message._id, user._id);
+  }
+};
 
-      updateMessage({
-        ...message,
-        bookmarked: res.data.bookmarked,
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
   return (
     <div className="flex gap-3 group hover:bg-gray-100 p-3 rounded-lg relative">
 
       {/* Avatar */}
-      <div className="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center">
-        {message?.sender?.name?.[0] || "U"}
+      <div className="relative">
+        <div className="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center">
+          {message?.sender?.name?.[0] || "U"}
+        </div>
+
+        {isOnline && (
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+        )}
       </div>
 
       <div className="flex-1">
@@ -157,12 +164,13 @@ const renderContent = (text) => {
           )}
 
           {/* BOOKMARKED */}
-          {message?.bookmarked && (
+          {isBookmarked && (
             <span className="flex items-center gap-1 text-yellow-500 text-xs">
               <Bookmark size={12} />
               <span>saved</span>
             </span>
           )}
+
         </div>
 
         {/* Content */}
@@ -173,33 +181,44 @@ const renderContent = (text) => {
             </code>
           </pre>
         ) : (
-          <p className="text-sm break-words">
-            {message.content?.match(/\.(jpeg|jpg|png|gif|webp)$/) ? (
-                <img
-                  src={message.content}
-                  className="max-w-xs rounded-lg mt-1"
-                />
-              ) : message.content?.startsWith("http") ? (
-                <a
-                  href={message.content}
-                  target="_blank"
-                  className="text-blue-500 underline text-sm"
-                >
-                  View File
-                </a>
-              ) : message.content?.includes("```") ? (
-                <pre className="bg-gray-900 text-white p-3 rounded overflow-x-auto text-xs">
-                  <code>{message.content.replace(/```/g, "")}</code>
-                </pre>
-              ) : (
-                <p className="text-sm break-words">
-                  {renderContent(message.content)}
-                </p>
-              )}
+          <div className="text-sm break-words">
+  {message.content?.match(/\.(jpeg|jpg|png|gif|webp)$/) ? (
+    <img
+      src={message.content}
+      className="max-w-xs rounded-lg mt-1"
+    />
+  ) : message.content?.startsWith("http") ? (
+    <a
+      href={message.content}
+      target="_blank"
+      className="text-blue-500 underline text-sm"
+    >
+      View File
+    </a>
+  ) : message.content?.includes("```") ? (
+    <pre className="bg-gray-900 text-white p-3 rounded overflow-x-auto text-xs">
+      <code>{message.content.replace(/```/g, "")}</code>
+    </pre>
+  ) : (
+    <span className="flex items-end">{renderContent(message.content)}  
+     {isMine && (
+  <span className="ml-2 flex items-center">
+    {isRead ? (
+      <CheckCheck size={14} className="text-blue-500" />
+    ) : (
+      <Check size={14} className="text-gray-400" />
+    )}
+  </span>
+)}
+</span>
+  )}
 
-          </p>
+</div>
+
 
         )}
+        
+
 
         {/* Reactions */}
         <div className="flex gap-2 mt-2">
@@ -230,7 +249,7 @@ const renderContent = (text) => {
           {message?.pinned ?  <PinOff size={16} /> : <Pin size={16}/>}
         </button>
         <button onClick={handleBookmark} className="p-2 rounded-lg hover:bg-violet-100">
-          {message?.bookmarked ? <BookmarkX size={16} /> : <Bookmark size={16} />}
+          {isBookmarked ? <BookmarkX size={16} /> : <Bookmark size={16} />}
         </button>
       </div>
 
