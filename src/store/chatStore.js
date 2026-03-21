@@ -87,7 +87,10 @@ toggleReactionLocal: (messageId, emoji, userId) =>
 
       let reactions = [...(m.reactions || [])];
 
-      const index = reactions.findIndex((r) => r.user === userId);
+      const index = reactions.findIndex(
+        (r) => r.user.toString() === userId.toString()
+      );
+
 
       if (index !== -1) {
         if (reactions[index].emoji === emoji) {

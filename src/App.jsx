@@ -10,6 +10,7 @@ import Logout from "./pages/Logout";
 import JoinWorkspace from "./pages/JoinWorkspace";
 import useChatStore from "./store/chatStore";
 import socket from "./socket/socket";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const hydrateUser = useAuthStore((s) => s.hydrateUser);
@@ -117,6 +118,7 @@ useEffect(() => {
 
   return (
     <BrowserRouter>
+    <Toaster position="bottom-center" />
       <Routes>
 
         <Route path="/login" element={<Login />} />

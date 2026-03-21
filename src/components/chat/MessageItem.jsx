@@ -12,6 +12,8 @@ import useAuthStore from "../../store/authStore";
 import Prism from "prismjs";
 import "prismjs/themes/prism.css";
 import { Bookmark, BookmarkX, Check, CheckCheck, Pin, PinOff, SmilePlus } from "lucide-react";
+import * as Tooltip from "@radix-ui/react-tooltip";
+
 
 
 export default function MessageItem({ message }) {
@@ -46,13 +48,13 @@ export default function MessageItem({ message }) {
   const groupedReactions = Object.values(
     (message.reactions || []).reduce((acc, r) => {
       if (!acc[r.emoji]) {
-        acc[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
+        acc[r.emoji] = { emoji: r.emoji, users: [] };
       }
-      acc[r.emoji].count++;
       acc[r.emoji].users.push(r.user);
       return acc;
     }, {})
   );
+
 
   /* ================= REACTION ================= */
   const handleReaction = async (emoji) => {
@@ -222,25 +224,59 @@ const handleBookmark = async () => {
 
         {/* Reactions */}
         <div className="flex gap-2 mt-2">
-          {groupedReactions.map((r, i) => {
-            const isMine = r.users.includes(user?._id);
+            {groupedReactions.map((reaction, i) => {
+              const isMine = reaction.users.some(
+                (u) => u.toString() === user._id.toString()
+              );
 
-            return (
-              <button
-                key={i}
-                onClick={() => handleReaction(r.emoji)}
-                className={`text-xs px-2 py-1 rounded border ${
-                  isMine
-                    ? "bg-blue-100 border-blue-400"
-                    : "bg-gray-200"
-                }`}
-              >
-                {r.emoji} {r.count}
-              </button>
-            );
-          })}
-        </div>
+              return (
+                <Tooltip.Provider key={i}>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger asChild>
+                      <div
+                        onClick={() => handleReaction(reaction.emoji)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition ${
+                          isMine
+                            ? "bg-blue-100 border-blue-400"
+                            : "bg-gray-200 hover:bg-gray-300"
+                        }`}
+                      >
+                        <span>{reaction.emoji}</span>
+
+                        {/* Avatar stack */}
+                        <div className="flex -space-x-2">
+                          {reaction.users.slice(0, 3).map((u, idx) => (
+                            <div
+                              key={idx}
+                              className="w-5 h-5 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center border"
+                            >
+                              {typeof u === "object" ? u.name?.[0] : "U"}
+                            </div>
+                          ))}
+                        </div>
+
+                        <span className="text-xs">{reaction.users.length}</span>
+                      </div>
+                    </Tooltip.Trigger>
+
+                    {/* ✅ TOOLTIP */}
+                    <Tooltip.Content
+                      side="top"
+                      className="bg-black text-white text-xs px-2 py-1 rounded shadow"
+                    >
+                      {reaction.users
+                        .map((u) => (typeof u === "object" ? u.name : "User"))
+                        .join(", ")}
+                    </Tooltip.Content>
+                  </Tooltip.Root>
+                </Tooltip.Provider>
+              );
+            })}
+          </div>
+
+
       </div>
+
 
       {/* Actions */}
       <div className="absolute shadow-lg  rounded-lg bg-white text-gray-500 right-2 top-2 hidden group-hover:flex gap-2">

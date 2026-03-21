@@ -5,11 +5,14 @@ import useAuthStore from "../../store/authStore";
 import MessageItem from "./MessageItem";
 import socket from "../../socket/socket";
 import { MessageCircleWarning } from "lucide-react";
+import * as Dialog from "@radix-ui/react-dialog";
 
-export default function MessageList() {
+export default function MessageList({ messageRefs }) {
   const { activeChannel, messages, setMessages } = useChatStore();
   const messagesEndRef = useRef(null);
   const [typingUsers, setTypingUsers] = useState([]);
+  const pinned = messages.filter((m) => m.pinned);
+
 
   useEffect(() => {
   if (!activeChannel?._id) return;
@@ -168,14 +171,41 @@ useEffect(() => {
   return `${typingUsers[0]} and ${typingUsers.length - 1} others are typing...`;
 };
 
+const scrollToMessage = (id) => {
+  const el = messageRefs.current[id];
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    // highlight effect
+    el.classList.add("bg-yellow-100");
+    setTimeout(() => {
+      el.classList.remove("bg-yellow-100");
+    }, 1500);
+  }
+};
+
+
+
+
 
   return (
   <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-3 bg-gray-50 overscroll-contain">
+
+
+
     {messages?.length > 0 ? (
       Array.isArray(messages) &&
       messages.map((msg) =>
-        msg?._id ? <MessageItem key={msg._id} message={msg} /> : null
+        msg?._id ? (
+          <div
+            key={msg._id}
+            ref={(el) => (messageRefs.current[msg._id] = el)}
+          >
+            <MessageItem message={msg} />
+          </div>
+        ) : null
       )
+
     ) : (
         <div className="flex items-center justify-center h-full w-full">
           <p className="flex items-center gap-2 text-gray-400 text-sm">
