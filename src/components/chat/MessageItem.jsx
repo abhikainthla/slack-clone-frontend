@@ -17,7 +17,6 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 
 
 export default function MessageItem({ message }) {
-  if (!message || !message._id) return null;
 
   const [showPicker, setShowPicker] = useState(false);
 
@@ -26,15 +25,24 @@ export default function MessageItem({ message }) {
   const toggleReactionLocal = useChatStore((s) => s.toggleReactionLocal);
   const toggleBookmarkLocal = useChatStore((s) => s.toggleBookmarkLocal);
   const onlineUsers = useChatStore((s) => s.onlineUsers);
+  if (!message || !message._id || !user) return null;
   const isBookmarked = message.bookmarkedBy?.some(
     (id) => id.toString() === user?._id
   );
 
-  const isOnline = onlineUsers[message?.sender?._id] === "online";
+  const senderId =
+  typeof message?.sender === "object"
+    ? message?.sender?._id?.toString()
+    : message?.sender?.toString();
+
+const isOnline = onlineUsers[senderId] === "online";
+
   const isMine = message.sender?._id === user?._id;
-  const isRead = message.readBy?.some(
-    (r) => r.user !== user?._id // someone else read it
-  );
+  const isRead = message.readBy?.some((r) => {
+    const id = typeof r.user === "object" ? r.user?._id : r.user;
+    return id?.toString() !== user?._id?.toString();
+  });
+
 
 
 
@@ -139,9 +147,15 @@ const handleBookmark = async () => {
         </div>
 
         {isOnline && (
-          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+          <span className="absolute bottom-0 right-0">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-white"></span>
+            </span>
+          </span>
         )}
-      </div>
+
+              </div>
 
       <div className="flex-1">
 
@@ -225,9 +239,10 @@ const handleBookmark = async () => {
         {/* Reactions */}
         <div className="flex gap-2 mt-2">
             {groupedReactions.map((reaction, i) => {
-              const isMine = reaction.users.some(
-                (u) => u.toString() === user._id.toString()
-              );
+             const isMine = reaction.users?.some((u) => {
+                const id = typeof u === "object" ? u?._id : u;
+                return id?.toString() === user?._id?.toString();
+              });
 
               return (
                 <Tooltip.Provider key={i}>

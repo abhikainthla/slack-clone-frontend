@@ -5,6 +5,7 @@ import useAuthStore from "../store/authStore";
 import api from "../api/axios";
 import CreateWorkspaceModal from "../components/modals/CreateWorkspaceModal";
 import { LogOut } from "lucide-react";
+import socket from "../socket/socket";
 
 export default function Workspace() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -37,19 +38,36 @@ export default function Workspace() {
     }
   };
 
-  const fetchNotifications = async () => {
-    try {
-      const res = await api.get("/notifications");
-      setNotifications(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+const fetchNotifications = async () => {
+  try {
+    const res = await api.get("/notifications"); 
+    setNotifications(res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+useEffect(() => {
+  socket.on("new_notification", (data) => {
+    const userId = user?._id;
+
+    const newOnes = data.notifications.filter(
+      (n) => n.user?.toString() === userId?.toString()
+
+    );
+
+    if (newOnes.length === 0) return;
+
+    setNotifications((prev) => [...newOnes, ...prev]);
+  });
+
+  return () => socket.off("new_notification");
+}, [user]);
 
   //  count notifications per workspace
   const getWorkspaceNotificationCount = (workspaceId) => {
     return notifications.filter(
-      (n) => n?.message?.workspace === workspaceId
+      (n) => n?.message?.workspace?.toString() === workspaceId?.toString()
     ).length;
   };
 
@@ -111,7 +129,24 @@ export default function Workspace() {
             return (
               <div
                 key={ws._id}
-                onClick={() => navigate(`/workspace/${ws._id}`)}
+               onClick={async () => {
+          try {
+            await api.put(`/notifications/read/${ws._id}`);
+
+            // remove locally
+            setNotifications((prev) =>
+              prev.filter(
+                (n) =>
+                  n?.message?.workspace?.toString() !== ws._id.toString()
+              )
+            );
+
+            navigate(`/workspace/${ws._id}`);
+          } catch (err) {
+            console.error(err);
+          }
+        }}
+
                 className="p-5 bg-white rounded-xl border shadow-sm cursor-pointer hover:shadow-md transition"
               >
                 {/* HEADER */}

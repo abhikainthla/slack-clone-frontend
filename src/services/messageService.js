@@ -2,12 +2,18 @@ import api from "../api/axios";
 
 /* MESSAGE */
 export const sendMessage = (data) => api.post("/messages", data);
-export const getMessages = (channelId) =>
-  api.get(`/messages/${channelId}`);
+export const getMessages = ({ channelId, userId }) => {
+  return api.get("/messages", {
+    params: { channelId, userId },
+  });
+};
+
 
 /* MARK AS READ */
-export const markAsRead = (channelId, messageId = null) =>
-  api.post(`/messages/read/${channelId}`, { messageId });
+export const markAsRead = (messageId) => {
+  return api.put(`/messages/read-message/${messageId}`);
+};
+
 
 /* ================= REACTIONS ================= */
 

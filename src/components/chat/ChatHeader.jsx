@@ -2,50 +2,56 @@ import { useState } from "react";
 import useChatStore from "../../store/chatStore";
 import ChannelSettingsModal from "../modals/ChannelSettingsModal";
 import RoleBadge from "../common/RoleBadge";
-import { Settings, Bookmark } from "lucide-react";
+import { Settings } from "lucide-react";
 import BookmarkDialog from "./BookmarkDialog";
 import PinnedDialog from "./PinnedDialog";
 
-
 export default function ChatHeader({ onJump }) {
-  const activeChannel = useChatStore((s) => s.activeChannel);
-  const role = activeChannel?.role || "member";
   const [open, setOpen] = useState(false);
 
 
+  const { activeChannel, dmUser, isDM } = useChatStore();
+
+  const role = activeChannel?.role || "member";
 
   return (
     <>
       <header className="border-b h-16 flex items-center px-6 bg-white shrink-0">
-        {activeChannel?._id ? (
+        {(activeChannel?._id || isDM) ? (
           <div className="flex items-center justify-between w-full">
 
-            {/* LEFT */}
+            {/* ================= LEFT ================= */}
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
+
+                {/* ✅SWITCH BETWEEN DM & CHANNEL */}
                 <h2 className="font-bold text-lg text-gray-800 tracking-tight">
-                  # {activeChannel.name}
+                  {isDM
+                    ? dmUser?.name
+                    : `# ${activeChannel?.name}`}
                 </h2>
-                <RoleBadge role={role} />
+
+                {!isDM && <RoleBadge role={role} />}
               </div>
 
               <p className="text-xs text-gray-500 font-medium">
-                Channel discussion and updates
+                {isDM
+                  ? "Direct message conversation"
+                  : "Channel discussion and updates"}
               </p>
             </div>
 
-            {/* RIGHT */}
+            {/* ================= RIGHT ================= */}
             <div className="flex items-center gap-2">
 
-                {/* 📌 PINNED */}
-            <PinnedDialog onJump={onJump} />
+              {/* 📌 PINNED (only for channels) */}
+              <PinnedDialog onJump={onJump} />
 
-              {/* 🔖 BOOKMARK BUTTON */}
-             <BookmarkDialog onJump={onJump} />
+              {/* 🔖 BOOKMARK */}
+              <BookmarkDialog onJump={onJump} />
 
-
-              {/* ⚙️ SETTINGS */}
-              {role === "admin" && (
+              {/* ⚙️ SETTINGS (only admin + channel) */}
+              {!isDM && role === "admin" && (
                 <button
                   onClick={() => setOpen(true)}
                   title="Channel Settings"
@@ -59,17 +65,19 @@ export default function ChatHeader({ onJump }) {
         ) : (
           <div className="flex items-center h-full">
             <p className="text-gray-400 italic text-sm">
-              Select a channel to start chatting
+              Select a channel or user to start chatting
             </p>
           </div>
         )}
       </header>
 
-      {/* ✅ KEEP MODAL OUTSIDE HEADER */}
-      <ChannelSettingsModal
-        open={open}
-        onOpenChange={setOpen}
-      />
+      {/* ✅ MODAL */}
+      {!isDM && (
+        <ChannelSettingsModal
+          open={open}
+          onOpenChange={setOpen}
+        />
+      )}
     </>
   );
 }

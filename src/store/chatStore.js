@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { enrichChannel } from "../utils/channelUtils";
+import socket from "../socket/socket";
 
 const useChatStore = create((set, get) => ({
   // State
@@ -9,6 +10,28 @@ const useChatStore = create((set, get) => ({
   activeChannel: null,
   messages: [],
   userId: null,
+
+dmUser: null,
+isDM: false,
+
+setDM: (user) => {
+  socket.emit("join_dm", user._id);
+  set({
+    isDM: true,
+    dmUser: user,
+    activeChannel: null,
+    messages: [],
+  });
+},
+
+
+
+clearDM: () =>
+  set({
+    isDM: false,
+    dmUser: null,
+  }),
+
 
   // Workspace actions
   setWorkspace: (workspace) => set({ workspace }),
@@ -31,23 +54,40 @@ const useChatStore = create((set, get) => ({
 
   setActiveChannel: (channel, userId = get().userId) => {
     if (!channel || !channel._id) {
-      return set({ activeChannel: null, messages: [] });
+      return set({
+         activeChannel: null,
+         isDM: false,
+         dmUser: null,           
+         messages: [],
+
+        });
     }
     const finalChannel = userId ? enrichChannel(channel, userId) : channel;
     set({
       activeChannel: finalChannel,
+      isDM: false, 
+      dmUser: null,  
       messages: [],
     });
   },
 
   // Message actions
-  setMessages: (messages) =>
-  set((state) => ({
-    messages:
+setMessages: (messages) =>
+  set((state) => {
+    const incoming =
       typeof messages === "function"
         ? messages(state.messages)
-        : messages,
-  })),
+        : messages;
+
+    const map = new Map();
+
+    incoming.forEach((m) => {
+      map.set(m._id || m.tempId, m);
+    });
+
+    return { messages: Array.from(map.values()) };
+  }),
+
   
   addMessage: (message) =>
     set((state) => {

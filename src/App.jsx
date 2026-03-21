@@ -20,8 +20,8 @@ function App() {
   }, []);
 
   /*  Emit online when user loads */
+  const user = useAuthStore.getState().user;
   useEffect(() => {
-    const user = useAuthStore.getState().user;
 
     if (user?._id) {
       socket.emit("user_online", user._id);
@@ -31,8 +31,6 @@ function App() {
   /*  HANDLE RECONNECT */
   useEffect(() => {
     const handleConnect = () => {
-      const user = useAuthStore.getState().user;
-
       if (user?._id) {
         socket.emit("user_online", user._id);
       }
