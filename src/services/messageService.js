@@ -1,7 +1,6 @@
 import api from "../api/axios";
 
 /* MESSAGE */
-export const sendMessage = (data) => api.post("/messages", data);
 export const getMessages = ({ channelId, userId }) => {
   return api.get("/messages", {
     params: { channelId, userId },
@@ -52,11 +51,24 @@ export const getBookmarks = () =>
 
 /* ================= FILE ================= */
 
-export const uploadFile = (file) => {
+export const uploadFile = (file, onProgress) => {
   const formData = new FormData();
   formData.append("file", file);
 
   return api.post("/messages/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    onUploadProgress: (progressEvent) => {
+      const percent = Math.round(
+        (progressEvent.loaded * 100) / progressEvent.total
+      );
+      onProgress(percent);
+    },
   });
+};
+
+
+export const sendMessage = (data) => {
+  return api.post("/messages", data);
 };

@@ -18,6 +18,41 @@ export default function BookmarkDialog({ onJump }) {
       m.bookmarkedBy?.some((id) => id.toString() === user?._id)
     );
 
+const renderMedia = (m) => {
+  if (!m.files || m.files.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-1">
+      {m.files.map((url, i) => {
+        if (url.match(/\.(jpeg|jpg|png|gif|webp)/i)) {
+          return (
+            <img key={i} src={url} className="rounded-lg max-h-36" />
+          );
+        }
+
+        if (url.match(/\.(mp4|webm|ogg)/i)) {
+          return <video key={i} src={url} controls className="max-h-36" />;
+        }
+
+        if (url.match(/\.(mp3|wav)/i)) {
+          return <audio key={i} src={url} controls />;
+        }
+
+        return (
+          <a
+            key={i}
+            href={url}
+            target="_blank"
+            onClick={(e) => e.stopPropagation()}
+            className="text-blue-500 text-xs underline"
+          >
+            View File
+          </a>
+        );
+      })}
+    </div>
+  );
+};
 
 
   /* ================= REMOVE ================= */
@@ -34,23 +69,18 @@ const handleRemove = async (id) => {
 
   /* ================= FILTER ================= */
   const filtered = bookmarks.filter((m) => {
-    if (filter === "media") {
-      return (
-        m.content?.includes("cloudinary.com") ||
-        m.content?.match(/\.(jpeg|jpg|png|gif|webp)$/)
-      );
-    }
+  if (filter === "media") {
+    return m.files && m.files.length > 0;
+  }
 
-    if (filter === "links") {
-      return m.content?.startsWith("http");
-    }
+  if (filter === "links") {
+    return m.content?.startsWith("http");
+  }
 
-    return true;
-  });
+  return true;
+});
 
-  const isImage = (url) =>
-    url?.includes("cloudinary.com") ||
-    /\.(jpeg|jpg|png|gif|webp)/i.test(url);
+
 
 
 
@@ -121,22 +151,12 @@ const handleRemove = async (id) => {
                   </p>
 
                   {/* CONTENT */}
-                  {isImage(m.content) ? (
-                    <img src={m.content} className="rounded-lg max-h-36" />
-                  ) : m.content?.startsWith("http") ? (
-                    <a
-                      href={m.content}
-                      target="_blank"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-blue-500 text-xs underline break-all"
-                    >
-                      {m.content}
-                    </a>
-                  ) : (
-                    <p className="text-sm line-clamp-2">
-                      {m.content}
-                    </p>
-                  )}
+                  {m.files?.length > 0 ? (
+                    renderMedia(m)
+                  ) : m.content ? (
+                    <p className="text-sm line-clamp-2">{m.content}</p>
+                  ) : null}
+
 
                   {/* TIME */}
                   <p className="text-[10px] text-gray-400 mt-1">

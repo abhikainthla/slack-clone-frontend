@@ -82,8 +82,18 @@ setMessages: (messages) =>
     const map = new Map();
 
     incoming.forEach((m) => {
-      map.set(m._id || m.tempId, m);
+    if (!m) return;
+
+    const key = m._id || m.tempId;
+    if (!key) return;
+
+    map.set(key, {
+      ...m,
+      files: m.files || [], 
+      sender: m.sender || null,
     });
+  });
+
 
     return { messages: Array.from(map.values()) };
   }),

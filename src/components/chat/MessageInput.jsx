@@ -7,73 +7,213 @@ import {
   AtSign,
   Code,
   Send,
+  X,
+  FileIcon,
+  Loader2,
 } from "lucide-react";
 
 import api from "../../api/axios";
 import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
-import { sendMessage } from "../../services/messageService"; 
-import { uploadFile } from "../../services/messageService";
+import { sendMessage, uploadFile } from "../../services/messageService";
 import socket from "../../socket/socket";
 
+
+/* ================= MAIN ================= */
 export default function MessageInput() {
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [showMention, setShowMention] = useState(false);
-  const [users, setUsers] = useState([]);
-  const [file, setFile] = useState(null);
+  const [attachments, setAttachments] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState(null);
-  const { addMessage } = useChatStore.getState();
-  const fileInputRef = useRef(null);
+  const [showMention, setShowMention] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [users, setUsers] = useState([]);
   const typingTimeoutRef = useRef(null);
-
-  const { activeChannel, dmUser, isDM } = useChatStore();
   const user = useAuthStore((s) => s.user);
 
-  /* ================= FETCH USERS (ONLY CHANNEL) ================= */
+
+
+  const { addMessage, activeChannel, dmUser, isDM } = useChatStore();
+  const fileInputRef = useRef();
+
   useEffect(() => {
-    if (!activeChannel?._id || isDM) return;
+  if (!activeChannel?._id || isDM) return;
 
-    const fetchUsers = async () => {
-      try {
-        const res = await api.get(`/channels/${activeChannel._id}/members`);
-        setUsers(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    fetchUsers();
-  }, [activeChannel, isDM]);
-
-  /* ================= FILE UPLOAD ================= */
-  const handleFileUpload = (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
-
-    setFile(selectedFile);
-
-    if (selectedFile.type.startsWith("image/")) {
-      setPreview(URL.createObjectURL(selectedFile));
-    } else {
-      setPreview(null);
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get(`/channels/${activeChannel._id}/members`);
+      setUsers(res.data);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  /* ================= DRAG DROP ================= */
-  const handleDrop = async (e) => {
-    e.preventDefault();
+  fetchUsers();
+}, [activeChannel, isDM]);
 
-    const droppedFile = e.dataTransfer.files[0];
-    if (!droppedFile) return;
+/* ================= HANDLE INPUT ================= */
+const handleChange = (value) => {
+  setText(value);
+
+  /* ================= MENTION LOGIC ================= */
+  const match = value.match(/@(\w*)$/);
+
+  if (match) {
+    setShowMention(true);
+    setMentionQuery(match[1].toLowerCase());
+    setMentionIndex(0);
+  } else {
+    setShowMention(false);
+  }
+
+  /* ================= TYPING EMIT ================= */
+  if (!user?.name) return;
+
+  const payload = {
+    user: user.name,
+    channelId: activeChannel?._id,
+    receiverId: dmUser?._id,
+    isDM,
+  };
+
+  socket.emit("typing", payload);
+
+  // clear previous timeout
+  if (typingTimeoutRef.current) {
+    clearTimeout(typingTimeoutRef.current);
+  }
+
+  // stop typing after delay
+  typingTimeoutRef.current = setTimeout(() => {
+    socket.emit("stop_typing", payload);
+  }, 1500);
+};
+
+/* ================= FILTER USERS ================= */
+const filteredUsers = users.filter((u) =>
+  u.name.toLowerCase().includes(mentionQuery)
+);
+
+/* ================= SELECT MENTION ================= */
+const selectMention = (user) => {
+  const newText = text.replace(/@(\w*)$/, `@${user.name} `);
+  setText(newText);
+  setShowMention(false);
+};
+
+/* ================= KEY HANDLING ================= */
+const handleKeyPress = (e) => {
+  if (showMention) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMentionIndex((i) =>
+        i < filteredUsers.length - 1 ? i + 1 : i
+      );
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMentionIndex((i) => (i > 0 ? i - 1 : 0));
+      return;
+    }
+
+    if (e.key === "Enter") {
+      if (filteredUsers[mentionIndex]) {
+        e.preventDefault();
+        selectMention(filteredUsers[mentionIndex]);
+        return;
+      }
+    }
+  }
+
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    handleSend();
+  }
+};
+
+
+  /* ================= FILE HANDLING ================= */
+  const handleFileSelection = (files) => {
+    const newFiles = Array.from(files).map((file) => ({
+      file,
+      id: crypto.randomUUID(),
+      name: file.name,
+      type: file.type,
+      preview: file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : null,
+      progress: 0,
+    }));
+
+    setAttachments((prev) => [...prev, ...newFiles]);
+  };
+
+  const removeAttachment = (id) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  /* ================= DRAG DROP ================= */
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelection(e.dataTransfer.files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => setIsDragging(false);
+
+  /* ================= SEND ================= */
+  const handleSend = async () => {
+    if (!text.trim() && attachments.length === 0) return;
 
     setIsSending(true);
 
     try {
-      const res = await uploadFile(droppedFile);
-      const fileUrl = res.data.url;
+      let uploadedUrls = [];
 
-      await handleSend(fileUrl);
+      if (attachments.length > 0) {
+        const results = await Promise.all(
+          attachments.map((a) =>
+            uploadFile(a.file, (progress) => {
+              setAttachments((prev) =>
+                prev.map((item) =>
+                  item.id === a.id ? { ...item, progress } : item
+                )
+              );
+            })
+          )
+        );
+
+        uploadedUrls = results.map((r) => r.data.url);
+      }
+
+      const extractMentions = () => {
+        const matches = text.match(/@([\w]+)/g) || [];
+        return matches.map((m) => m.replace("@", ""));
+      };
+
+      const payload = {
+        content: text,
+        files: uploadedUrls,
+        mentions: extractMentions(), 
+        ...(isDM
+          ? { receiverId: dmUser._id }
+          : { channelId: activeChannel._id }),
+      };
+
+      const res = await sendMessage(payload);
+      addMessage(res.data);
+
+      setText("");
+      setAttachments([]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -81,83 +221,6 @@ export default function MessageInput() {
     }
   };
 
-  const handleDragOver = (e) => e.preventDefault();
-
-  /* ================= INPUT CHANGE ================= */
-  const handleChange = (e) => {
-    const value = e.target.value;
-    setText(value);
-
-    if (isDM) return; // ❌ no mentions in DM
-
-    const lastWord = value.split(" ").pop();
-    setShowMention(lastWord.startsWith("@"));
-  };
-
-  /* ================= TYPING ================= */
-  const emitTyping = () => {
-    if (isDM) {
-      socket.emit("typing_dm", {
-        toUserId: dmUser._id,
-        user: user.name,
-      });
-    } else {
-      socket.emit("typing", {
-        channelId: activeChannel._id,
-        user: user.name,
-      });
-    }
-
-    clearTimeout(typingTimeoutRef.current);
-
-    typingTimeoutRef.current = setTimeout(() => {
-      if (isDM) {
-        socket.emit("stop_typing_dm", {
-          toUserId: dmUser._id,
-        });
-      } else {
-        socket.emit("stop_typing", {
-          channelId: activeChannel._id,
-        });
-      }
-    }, 1500);
-  };
-
-  /* ================= SEND MESSAGE ================= */
-const handleSend = async () => {
-  if (!text.trim()) return;
-
-  try {
-    const payload = isDM
-      ? {
-          receiverId: dmUser._id,
-          content: text,
-        }
-      : {
-          channelId: activeChannel._id,
-          content: text,
-        };
-
-    const res = await sendMessage(payload);
-
-    addMessage(res.data);
-
-    setText("");
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-
-
-
-  /* ================= ENTER ================= */
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
 
   if (!activeChannel && !isDM) return null;
 
@@ -165,118 +228,193 @@ const handleSend = async () => {
     <div
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      className="absolute bottom-4 left-0 w-full flex justify-center px-4"
+      onDragLeave={handleDragLeave}
+      className="fixed bottom-0 left-0 w-full flex justify-center px-4"
     >
-      <div className="w-full max-w-3xl bg-white border shadow-xl rounded-2xl px-3 py-2">
+      <div className="w-full max-w-3xl bg-white border shadow-2xl rounded-2xl overflow-hidden relative">
 
-        {/* FILE PREVIEW */}
-        {file && (
-          <div className="mb-2 p-2 border rounded-lg flex items-center gap-2">
-            {preview ? (
-              <img src={preview} className="w-16 h-16 object-cover rounded" />
-            ) : (
-              <div className="text-sm">{file.name}</div>
-            )}
+        {/* DRAG OVERLAY */}
+        {isDragging && (
+          <div className="absolute inset-0 bg-blue-100/80 flex items-center justify-center text-blue-600 font-medium text-lg z-50">
+            Drop files here 📂
           </div>
         )}
 
-        {/* INPUT */}
-        <div className="flex items-end gap-2">
-          <textarea
-            value={text}
-            onChange={(e) => {
-              handleChange(e);
-              emitTyping();
-            }}
-            onKeyDown={handleKeyPress}
-            placeholder={
-              isDM
-                ? `Message ${dmUser?.name}`
-                : `Message #${activeChannel?.name}`
-            }
-            rows={1}
-            className="flex-1 resize-none outline-none text-sm px-3 py-2 max-h-28"
-          />
+        {/* ================= ATTACHMENTS ================= */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-3 p-3 border-b bg-gray-50">
+            {attachments.map((at) => (
+              <div
+                key={at.id}
+                className="relative group w-24 h-24 border rounded-lg overflow-hidden bg-white shadow-sm"
+              >
+                {/* IMAGE */}
+                {at.type.startsWith("image/") && (
+                  <img
+                    src={at.preview}
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => setPreview(at.preview)}
+                  />
+                )}
 
-          <button
-            onClick={() => handleSend()}
-            className="p-2 rounded-xl bg-blue-500 text-white"
-          >
-            <Send size={18} />
-          </button>
-        </div>
+                {/* VIDEO */}
+                {at.type.startsWith("video/") && (
+                  <video
+                    src={URL.createObjectURL(at.file)}
+                    className="w-full h-full object-cover"
+                    controls
+                  />
+                )}
 
-        {/* ACTIONS */}
-        <div className="flex items-center gap-2 mt-2">
-          <button
-            onClick={() => fileInputRef.current.click()}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <Paperclip size={18} />
-          </button>
+                {/* AUDIO */}
+                {at.type.startsWith("audio/") && (
+                  <div className="p-2 flex items-center justify-center h-full">
+                    <audio controls src={URL.createObjectURL(at.file)} />
+                  </div>
+                )}
 
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-          />
+                {/* FILE */}
+                {!at.type.startsWith("image/") &&
+                  !at.type.startsWith("video/") &&
+                  !at.type.startsWith("audio/") && (
+                    <div className="flex flex-col items-center justify-center h-full p-1">
+                      <FileIcon size={20} />
+                      <span className="text-[10px] truncate">
+                        {at.name}
+                      </span>
+                    </div>
+                  )}
 
-          <Popover.Root>
-            <Popover.Trigger asChild>
-              <button className="p-2 hover:bg-gray-100 rounded-lg">
-                <Smile size={18} />
-              </button>
-            </Popover.Trigger>
+                {/* PROGRESS BAR */}
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-200">
+                  <div
+                    className="h-1 bg-blue-500"
+                    style={{ width: `${at.progress}%` }}
+                  />
+                </div>
 
-            <Popover.Content className="bg-white shadow-xl rounded-xl border p-2">
-              <EmojiPicker
-                onEmojiClick={(e) =>
-                  setText((prev) => prev + e.emoji)
-                }
-              />
-            </Popover.Content>
-          </Popover.Root>
+                {/* REMOVE */}
+                <button
+                  onClick={() => removeAttachment(at.id)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
-          {!isDM && (
+        {/* ================= INPUT ================= */}
+        <div className="px-3 py-2">
+          <div className="flex items-end gap-2">
+            <textarea
+              value={text}
+              onChange={(e) => handleChange(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder={
+                isDM
+                  ? `Message ${dmUser?.name}`
+                  : `Message #${activeChannel?.name}`
+              }
+              className="flex-1 resize-none outline-none text-sm px-3 py-2 max-h-40"
+            />
+
+
             <button
-              onClick={() => setText((prev) => prev + "@")}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              onClick={handleSend}
+              disabled={isSending}
+              className="p-2 rounded-xl bg-blue-600 text-white"
             >
-              <AtSign size={18} />
+              {isSending ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Send size={18} />
+              )}
             </button>
-          )}
+          </div>
+          {showMention && filteredUsers.length > 0 && (
+          <div className="absolute bottom-20 left-4 w-60 bg-white border shadow-xl rounded-xl z-50 max-h-60 overflow-y-auto">
+            {filteredUsers.map((u, i) => (
+              <div
+                key={u._id}
+                onClick={() => selectMention(u)}
+                className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${
+                  i === mentionIndex ? "bg-blue-100" : "hover:bg-gray-100"
+                }`}
+              >
+                <img
+                  src={u.avatar}
+                  className="w-6 h-6 rounded-full"
+                />
+                <span className="text-sm">{u.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
-          <button
-            onClick={() =>
-              setText((prev) => prev + "\n```\ncode here\n```\n")
-            }
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <Code size={18} />
-          </button>
+
+          {/* ACTIONS */}
+          <div className="flex items-center gap-1 mt-2 border-t pt-2">
+            <input
+              type="file"
+              multiple
+              ref={fileInputRef}
+              className="hidden"
+              onChange={(e) => handleFileSelection(e.target.files)}
+            />
+
+            <IconButton onClick={() => fileInputRef.current.click()}>
+              <Paperclip size={18} />
+            </IconButton>
+
+            <Popover.Root>
+              <Popover.Trigger asChild>
+                <button className="p-2 hover:bg-gray-100 rounded-lg">
+                  <Smile size={18} />
+                </button>
+              </Popover.Trigger>
+              <Popover.Content side="top">
+                <EmojiPicker
+                  onEmojiClick={(e) =>
+                    setText((prev) => prev + e.emoji)
+                  }
+                />
+              </Popover.Content>
+            </Popover.Root>
+
+            <IconButton onClick={() => setText((p) => p + "@")}>
+              <AtSign size={18} />
+            </IconButton>
+
+            <IconButton onClick={() => setText((p) => p + "\n```\n\n```")}>
+              <Code size={18} />
+            </IconButton>
+          </div>
         </div>
       </div>
 
-      {/* MENTION DROPDOWN */}
-      {!isDM && showMention && (
-        <div className="absolute bottom-24 w-64 bg-white border shadow-xl rounded-xl z-50">
-          {users.map((u) => (
-            <div
-              key={u._id}
-              onClick={() => {
-                setText((prev) =>
-                  prev.replace(/@\w*$/, `@${u.username || u.name} `)
-                );
-                setShowMention(false);
-              }}
-              className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-            >
-              {u.username || u.name}
-            </div>
-          ))}
+      {/* 🔥 IMAGE PREVIEW MODAL */}
+      {preview && (
+        <div
+          onClick={() => setPreview(null)}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+        >
+          <img src={preview} className="max-h-[80%] rounded-xl" />
         </div>
       )}
     </div>
+  );
+}
+
+/* ================= BUTTON ================= */
+function IconButton({ children, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-2 hover:bg-gray-100 rounded-lg"
+    >
+      {children}
+    </button>
   );
 }

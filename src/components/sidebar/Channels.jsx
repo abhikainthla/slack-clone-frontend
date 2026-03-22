@@ -13,9 +13,17 @@ export default function Channels() {
   const setChannels = useChatStore((s) => s.setChannels);
   const setActiveChannel = useChatStore((s) => s.setActiveChannel);
   const setUserId = useChatStore((s) => s.setUserId);
+  const workspace = useChatStore((s) => s.workspace);
+  const authUser = useAuthStore((s) => s.user);
+
+  const role = workspace?.members?.find(
+    (m) => m.user?._id === authUser?._id
+  )?.role;
+
+  const isAdmin = role === "admin" || role === "moderator";
+
 
   const [open, setOpen] = useState(false);
-  const authUser = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (authUser?._id) {
@@ -40,15 +48,22 @@ export default function Channels() {
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2">
         <p className="text-xs text-gray-400">CHANNELS</p>
-        <button
-          onClick={() => setOpen(true)}
-          className="text-sm text-purple-600"
-        >
-          + Add
-        </button>
+
+        {/*  ONLY ADMIN/MODERATOR */}
+        {isAdmin && (
+          <button
+            onClick={() => setOpen(true)}
+            className="text-sm text-purple-600"
+          >
+            + Add
+          </button>
+        )}
       </div>
 
-      <CreateChannelModal open={open} onOpenChange={setOpen} />
+      {/* ✅ MODAL ONLY FOR ADMIN */}
+      {isAdmin && (
+        <CreateChannelModal open={open} onOpenChange={setOpen} />
+      )}
 
       {channels.length === 0 && (
         <p className="text-sm text-gray-400 px-2">No channels yet</p>

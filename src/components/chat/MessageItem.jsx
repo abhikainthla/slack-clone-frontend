@@ -11,7 +11,7 @@ import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
 import Prism from "prismjs";
 import "prismjs/themes/prism.css";
-import { Bookmark, BookmarkX, Check, CheckCheck, Pin, PinOff, SmilePlus } from "lucide-react";
+import { Bookmark, BookmarkX, Check, CheckCheck, FileIcon, Pin, PinOff, SmilePlus } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 
 
@@ -19,6 +19,8 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 export default function MessageItem({ message }) {
 
   const [showPicker, setShowPicker] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
+
 
   const user = useAuthStore((s) => s.user);
   const updateMessage = useChatStore((s) => s.updateMessage);
@@ -37,7 +39,8 @@ export default function MessageItem({ message }) {
 
 const isOnline = onlineUsers[senderId] === "online";
 
-  const isMine = message.sender?._id === user?._id;
+const isMine = senderId?.toString() === user?._id?.toString();
+
   const isRead = message.readBy?.some((r) => {
     const id = typeof r.user === "object" ? r.user?._id : r.user;
     return id?.toString() !== user?._id?.toString();
@@ -190,49 +193,82 @@ const handleBookmark = async () => {
         </div>
 
         {/* Content */}
-       {message.content?.includes("```") ? (
-          <pre className="bg-gray-900 text-white p-3 rounded overflow-x-auto text-xs">
-            <code className="language-js">
-              {message.content.replace(/```/g, "")}
-            </code>
-          </pre>
-        ) : (
-          <div className="text-sm break-words">
-  {message.content?.match(/\.(jpeg|jpg|png|gif|webp)$/) ? (
-    <img
-      src={message.content}
-      className="max-w-xs rounded-lg mt-1"
-    />
-  ) : message.content?.startsWith("http") ? (
-    <a
-      href={message.content}
-      target="_blank"
-      className="text-blue-500 underline text-sm"
-    >
-      View File
-    </a>
-  ) : message.content?.includes("```") ? (
-    <pre className="bg-gray-900 text-white p-3 rounded overflow-x-auto text-xs">
-      <code>{message.content.replace(/```/g, "")}</code>
-    </pre>
-  ) : (
-    <span className="flex items-end">{renderContent(message.content)}  
-     {isMine && (
-  <span className="ml-2 flex items-center">
-    {isRead ? (
-      <CheckCheck size={14} className="text-blue-500" />
-    ) : (
-      <Check size={14} className="text-gray-400" />
-    )}
-  </span>
-)}
-</span>
-  )}
+{/* INTEGRATED CONTENT & FILES */}
+        <div className="mt-1 flex flex-col gap-2">
+          {message.content && (
+            <div className="text-sm break-words whitespace-pre-wrap">
+              {message.content.includes("```") ? (
+                <pre className="bg-gray-900 text-white p-3 rounded-lg overflow-x-auto my-1">
+                  <code className="language-js">{message.content.replace(/```/g, "")}</code>
+                </pre>
+              ) : (
+                <div className="flex items-end">
+                  {renderContent(message.content)}
+                  {isMine && (
+                    <span className="ml-2">
+                      {isRead ? <CheckCheck size={14} className="text-blue-500" /> : <Check size={14} className="text-gray-400" />}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-</div>
+          {/* Render Files/Images Array */}
+          {message.files?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-1">
+              {message.files.map((url, idx) => {
+                const isImg = /\.(jpeg|jpg|png|gif|webp)$/i.test(url);
+                const isVideo = /\.(mp4|webm|ogg)$/i.test(url);
+                const isAudio = /\.(mp3|wav|ogg)$/i.test(url);
+
+                if (isImg) {
+                  return (
+                    <img
+                      key={idx}
+                      src={url}
+                      className="w-40 h-32 object-cover rounded-lg cursor-pointer hover:scale-105 transition"
+                      onClick={() => setPreviewFile({ url, type: "image" })}
+                    />
+                  );
+                }
+
+                if (isVideo) {
+                  return (
+                    <video
+                      key={idx}
+                      src={url}
+                      controls
+                      className="w-48 rounded-lg"
+                    />
+                  );
+                }
+
+                if (isAudio) {
+                  return (
+                    <audio key={idx} src={url} controls className="w-48" />
+                  );
+                }
+
+                return (
+                  <a
+                    key={idx}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 bg-gray-100 rounded-lg text-sm"
+                  >
+                    File
+                  </a>
+                );
+              })}
+            </div>
+          )}
 
 
-        )}
+        </div>
+
+
         
 
 
@@ -315,6 +351,21 @@ const handleBookmark = async () => {
           />
         </div>
       )}
+
+      {/* Preview modal */}
+
+      {previewFile && (
+  <div
+    className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+    onClick={() => setPreviewFile(null)}
+  >
+    <img
+      src={previewFile.url}
+      className="max-h-[90vh] max-w-[90vw] rounded-lg"
+    />
+  </div>
+)}
+
     </div>
   );
 }

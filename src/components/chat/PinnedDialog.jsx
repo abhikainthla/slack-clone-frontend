@@ -8,9 +8,49 @@ export default function PinnedDialog({ onJump }) {
 
   const [open, setOpen] = useState(false);
 
-  const isImage = (url) =>
-    url?.includes("cloudinary.com") ||
-    /\.(jpeg|jpg|png|gif|webp)/i.test(url);
+  const renderMedia = (m) => {
+  if (!m.files || m.files.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-1">
+      {m.files.map((url, i) => {
+        if (url.match(/\.(jpeg|jpg|png|gif|webp)/i)) {
+          return (
+            <img
+              key={i}
+              src={url}
+              className="max-h-40 rounded-lg object-cover"
+            />
+          );
+        }
+
+        if (url.match(/\.(mp4|webm|ogg)/i)) {
+          return (
+            <video key={i} src={url} controls className="max-h-40 rounded-lg" />
+          );
+        }
+
+        if (url.match(/\.(mp3|wav)/i)) {
+          return <audio key={i} src={url} controls />;
+        }
+
+        return (
+          <a
+            key={i}
+            href={url}
+            target="_blank"
+            onClick={(e) => e.stopPropagation()}
+            className="text-blue-500 text-xs underline"
+          >
+            View File
+          </a>
+        );
+      })}
+    </div>
+  );
+};
+
+
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -58,22 +98,11 @@ export default function PinnedDialog({ onJump }) {
                     {m.sender?.name || "User"}
                   </p>
 
-                  {isImage(m.content) ? (
-                    <img src={m.content} className="max-h-40 rounded-lg" />
-                  ) : m.content?.startsWith("http") ? (
-                    <a
-                      href={m.content}
-                      target="_blank"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-blue-500 underline text-sm"
-                    >
-                      View File
-                    </a>
-                  ) : (
-                    <p className="text-sm line-clamp-2">
-                      {m.content}
-                    </p>
-                  )}
+                  {m.files?.length > 0 ? (
+                    renderMedia(m)
+                  ) : m.content ? (
+                    <p className="text-sm line-clamp-2">{m.content}</p>
+                  ) : null}
 
                   <p className="text-[10px] text-gray-400 mt-1">
                     {new Date(m.createdAt).toLocaleTimeString()}

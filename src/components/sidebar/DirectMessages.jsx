@@ -1,9 +1,20 @@
+import useAuthStore from "../../store/authStore";
 import useChatStore from "../../store/chatStore";
 
 export default function DirectMessages() {
   const { workspace, setDM } = useChatStore();
+  const user = useAuthStore((s) => s.user);
 
-  const members = workspace?.members || [];
+  const members =
+    workspace?.members
+      ?.filter((m) => m.user?._id !== user?._id) 
+      ?.reduce((acc, curr) => {
+        const exists = acc.find(
+          (m) => m.user._id === curr.user._id
+        );
+        if (!exists) acc.push(curr); 
+        return acc;
+      }, []) || [];
 
   return (
     <div>

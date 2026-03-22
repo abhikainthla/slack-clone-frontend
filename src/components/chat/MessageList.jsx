@@ -10,6 +10,7 @@ export default function MessageList({ messageRefs }) {
   const { activeChannel, messages, setMessages, dmUser, isDM } = useChatStore();
   const messagesEndRef = useRef(null);
   const [typingUsers, setTypingUsers] = useState([]);
+    const user = useAuthStore((s) => s.user);
 
   /* ================= JOIN ROOMS ================= */
   useEffect(() => {
@@ -22,22 +23,36 @@ export default function MessageList({ messageRefs }) {
     }
 
     if (isDM && dmUser?._id) {
-      socket.emit("join_dm", dmUser._id);
+      socket.emit("join_user", user._id);
     }
   }, [activeChannel, isDM, dmUser]);
 
   /* ================= SOCKET: MESSAGES (CHANNEL + DM) ================= */
   useEffect(() => {
     const handler = (newMessage) => {
+      const { activeChannel, dmUser, isDM } = useChatStore.getState();
+
+      //  CHANNEL FILTER
+      if (activeChannel?._id && newMessage.channel !== activeChannel._id) {
+        return;
+      }
+
+      //  DM FILTER
+      if (isDM) {
+        const participants = [
+          newMessage?.sender?._id || newMessage?.sender,
+          ...(newMessage?.conversation?.members || []),
+        ].map((id) => id?.toString());
+
+        if (!participants.includes(dmUser?._id?.toString())) {
+          return; // ignore other DMs
+        }
+      }
+
       setMessages((prev) => {
         const map = new Map();
 
         prev.forEach((m) => map.set(m._id || m.tempId, m));
-
-        if (newMessage.tempId) {
-          map.set(newMessage.tempId, newMessage);
-        }
-
         map.set(newMessage._id, newMessage);
 
         return Array.from(map.values());
@@ -52,6 +67,7 @@ export default function MessageList({ messageRefs }) {
       socket.off("receive_dm", handler);
     };
   }, [setMessages]);
+
 
   /* ================= SOCKET: READ RECEIPTS ================= */
   useEffect(() => {
@@ -80,15 +96,16 @@ export default function MessageList({ messageRefs }) {
 
   /* ================= SOCKET: TYPING ================= */
   useEffect(() => {
-    const handleTyping = (user) => {
+    const handleTyping = (username) => {
       const currentUser = useAuthStore.getState().user?.name;
-      if (user === currentUser) return;
+      if (username === currentUser) return;
 
       setTypingUsers((prev) => {
-        if (prev.includes(user)) return prev;
-        return [...prev, user];
+        if (prev.includes(username)) return prev;
+        return [...prev, username];
       });
     };
+
 
     const handleStopTyping = (user) => {
       setTypingUsers((prev) => prev.filter((u) => u !== user));
@@ -157,21 +174,34 @@ export default function MessageList({ messageRefs }) {
 
   /* ================= MARK AS READ ================= */
   useEffect(() => {
-    if (!messages.length) return;
+    if (!messages?.length) return;
 
     const user = useAuthStore.getState().user;
+    if (!user?._id) return;
 
-    const unread = messages.filter(
-      (m) =>
-        !m.readBy?.some(
-          (r) =>
-            (r.user?._id || r.user)?.toString() === user._id.toString()
-        )
-    );
+    const unread = messages.filter((m) => {
+      if (!m?._id) return false;
+
+      const readBy = Array.isArray(m.readBy) ? m.readBy : [];
+
+      const isRead = readBy.some((r) => {
+        if (!r) return false;
+
+        const id =
+          typeof r.user === "object"
+            ? r.user?._id
+            : r.user;
+
+        return id?.toString() === user._id.toString();
+      });
+
+      return !isRead;
+    });
 
     if (!unread.length) return;
 
     const lastUnread = unread[unread.length - 1];
+    if (!lastUnread?._id) return;
 
     const timeout = setTimeout(() => {
       markAsRead(lastUnread._id);
@@ -179,6 +209,7 @@ export default function MessageList({ messageRefs }) {
 
     return () => clearTimeout(timeout);
   }, [messages]);
+
 
   /* ================= AUTO SCROLL ================= */
   useEffect(() => {

@@ -34,4 +34,20 @@ export const updateWorkspace = (id, data) => {
   return api.put(`/workspaces/${id}`, data);
 };
 
+export const updateMemberRole = (workspaceId, userId, role) => {
+  return api.put(`/workspaces/${workspaceId}/members/${userId}/role`, {
+    role,
+  });
+};
 
+export const promoteMember = (workspaceId, userId) => {
+  return api.put(`/workspaces/${workspaceId}/promote/${userId}`);
+};
+
+export const demoteMember = (workspaceId, userId) => {
+  return api.put(`/workspaces/${workspaceId}/demote/${userId}`);
+};
+
+export const removeMember = (workspaceId, userId) => {
+  return api.delete(`/workspaces/${workspaceId}/members/${userId}`);
+};
