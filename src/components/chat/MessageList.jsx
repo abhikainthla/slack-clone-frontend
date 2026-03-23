@@ -11,6 +11,7 @@ export default function MessageList({ messageRefs }) {
   const messagesEndRef = useRef(null);
   const [typingUsers, setTypingUsers] = useState([]);
     const user = useAuthStore((s) => s.user);
+    
 
   /* ================= JOIN ROOMS ================= */
   useEffect(() => {
@@ -22,10 +23,11 @@ export default function MessageList({ messageRefs }) {
       };
     }
 
-    if (isDM && dmUser?._id) {
+    if (isDM && dmUser?._id && user?._id) {
       socket.emit("join_user", user._id);
     }
-  }, [activeChannel, isDM, dmUser]);
+  }, [activeChannel, isDM, dmUser, user]);
+
 
   /* ================= SOCKET: MESSAGES (CHANNEL + DM) ================= */
   useEffect(() => {
@@ -42,7 +44,9 @@ export default function MessageList({ messageRefs }) {
         const participants = [
           newMessage?.sender?._id || newMessage?.sender,
           ...(newMessage?.conversation?.members || []),
-        ].map((id) => id?.toString());
+        ]
+        .filter(Boolean)
+        .map((id) => id?.toString());
 
         if (!participants.includes(dmUser?._id?.toString())) {
           return; // ignore other DMs
@@ -50,13 +54,10 @@ export default function MessageList({ messageRefs }) {
       }
 
       setMessages((prev) => {
-        const map = new Map();
-
-        prev.forEach((m) => map.set(m._id || m.tempId, m));
-        map.set(newMessage._id, newMessage);
-
-        return Array.from(map.values());
-      });
+          const exists = prev.some((m) => m._id === newMessage._id);
+              if (exists) return prev;
+              return [...prev, newMessage];
+       });
     };
 
     socket.on("receive_message", handler);
@@ -192,7 +193,7 @@ export default function MessageList({ messageRefs }) {
             ? r.user?._id
             : r.user;
 
-        return id?.toString() === user._id.toString();
+        return id?.toString() === user?._id?.toString();
       });
 
       return !isRead;
@@ -233,7 +234,7 @@ export default function MessageList({ messageRefs }) {
 
   /* ================= UI ================= */
   return (
-    <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-3 bg-gray-50">
+    <div className="flex flex-col flex-1 min-w-0 bg-gray-50 p-4 pb-28 space-y-3">
 
       {messages?.length > 0 ? (
         messages.map((msg) =>

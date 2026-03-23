@@ -20,7 +20,12 @@ import socket from "../../socket/socket";
 
 
 /* ================= MAIN ================= */
-export default function MessageInput() {
+export default function MessageInput({
+  isThread = false,
+  onSendOverride,
+  parentMessageId,
+  replyTo,
+}) {
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -195,31 +200,32 @@ const handleKeyPress = (e) => {
         uploadedUrls = results.map((r) => r.data.url);
       }
 
-      const extractMentions = () => {
-        const matches = text.match(/@([\w]+)/g) || [];
-        return matches.map((m) => m.replace("@", ""));
-      };
-
       const payload = {
         content: text,
         files: uploadedUrls,
-        mentions: extractMentions(), 
+        parentMessage: parentMessageId,
         ...(isDM
           ? { receiverId: dmUser._id }
           : { channelId: activeChannel._id }),
       };
 
-      const res = await sendMessage(payload);
-      addMessage(res.data);
+      //  THREAD MODE
+      if (isThread && onSendOverride) {
+        await onSendOverride(payload);
+      } else {
+        await sendMessage(payload);
+      }
 
       setText("");
       setAttachments([]);
+
     } catch (err) {
       console.error(err);
     } finally {
       setIsSending(false);
     }
   };
+
 
 
   if (!activeChannel && !isDM) return null;
@@ -313,10 +319,13 @@ const handleKeyPress = (e) => {
               onChange={(e) => handleChange(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder={
-                isDM
+                replyTo
+                  ? `Replying to ${replyTo?.sender?.name}: "${replyTo?.content?.slice(0, 30)}"`
+                  : isDM
                   ? `Message ${dmUser?.name}`
                   : `Message #${activeChannel?.name}`
               }
+
               className="flex-1 resize-none outline-none text-sm px-3 py-2 max-h-40"
             />
 

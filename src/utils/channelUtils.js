@@ -6,7 +6,7 @@ export const enrichChannel = (channel = {}, userId) => {
 
   const currentUserId = userId?.toString();
 
-  // ✅ DETERMINE ROLE CORRECTLY
+  /* ================= ROLE ================= */
   let role = "member";
 
   if (admins.includes(currentUserId)) {
@@ -15,7 +15,7 @@ export const enrichChannel = (channel = {}, userId) => {
     role = "moderator";
   }
 
-  // ✅ ENRICH MEMBERS
+  /* ================= MEMBERS ================= */
   const enrichedMembers = members.map((m) => {
     const memberId = m._id?.toString();
 
@@ -29,6 +29,17 @@ export const enrichChannel = (channel = {}, userId) => {
     };
   });
 
+  /* ================= UNREAD ================= */
+  const lastMessage = channel.lastMessage;
+
+  const hasUnread =
+    lastMessage &&
+    Array.isArray(lastMessage.readBy) &&
+    !lastMessage.readBy.some((r) => {
+      const id = typeof r.user === "object" ? r.user?._id : r.user;
+      return id?.toString() === currentUserId;
+    });
+
   return {
     ...channel,
     roles: {
@@ -37,5 +48,6 @@ export const enrichChannel = (channel = {}, userId) => {
     },
     members: enrichedMembers,
     role,
+    hasUnread: !!hasUnread, // ensure boolean
   };
 };

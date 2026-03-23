@@ -113,6 +113,37 @@ useEffect(() => {
   return () => socket.off("reaction_update", handleReactionUpdate);
 }, []);
 
+useEffect(() => {
+  const handleDM = (msg) => {
+    const store = useChatStore.getState();
+    const { dmUser, isDM } = store;
+
+    // ✅ If currently chatting with same user → add message
+    if (
+      isDM &&
+      dmUser &&
+      (msg.sender._id === dmUser._id ||
+        msg.conversation?.members?.includes(dmUser._id))
+    ) {
+      store.addMessage(msg);
+    }
+
+    // ✅ Always update unread count
+    store.incrementUnread(msg.sender._id);
+  };
+
+  socket.on("receive_dm", handleDM);
+
+  return () => socket.off("receive_dm", handleDM);
+}, []);
+
+useEffect(() => {
+  if (user?._id) {
+    socket.emit("join_user", user._id); 
+  }
+}, [user]);
+
+
 
   return (
     <BrowserRouter>

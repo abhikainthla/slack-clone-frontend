@@ -60,7 +60,7 @@ export default function Channels() {
         )}
       </div>
 
-      {/* ✅ MODAL ONLY FOR ADMIN */}
+      {/*  MODAL ONLY FOR ADMIN */}
       {isAdmin && (
         <CreateChannelModal open={open} onOpenChange={setOpen} />
       )}
@@ -82,7 +82,19 @@ export default function Channels() {
                 : "hover:bg-gray-100"
             }`}
           >
-            <span># {channel.name}</span>
+            <span
+              className={`${
+                channel.hasUnread && !isActive
+                  ? "font-bold text-gray-900"
+                  : "text-gray-700"
+              }`}
+            >
+              # {channel.name}
+            </span>
+            {channel.hasUnread && !isActive && (
+              <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
+            )}
+
             <span className="text-xs text-gray-400">
               {channel.role}
             </span>

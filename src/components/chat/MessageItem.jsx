@@ -20,6 +20,7 @@ export default function MessageItem({ message }) {
 
   const [showPicker, setShowPicker] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
+  const openThread = useChatStore((s) => s.openThread);
 
 
   const user = useAuthStore((s) => s.user);
@@ -286,9 +287,9 @@ const handleBookmark = async () => {
                     <Tooltip.Trigger asChild>
                       <div
                         onClick={() => handleReaction(reaction.emoji)}
-                        className={`flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition ${
+                        className={`flex items-center gap-1 px-1 py-1 rounded-2xl border cursor-pointer transition ${
                           isMine
-                            ? "bg-blue-100 border-blue-400"
+                            ? "bg-[#efeffd] border-[#d0d1fa]"
                             : "bg-gray-200 hover:bg-gray-300"
                         }`}
                       >
@@ -310,7 +311,7 @@ const handleBookmark = async () => {
                       </div>
                     </Tooltip.Trigger>
 
-                    {/* ✅ TOOLTIP */}
+                    {/*  TOOLTIP */}
                     <Tooltip.Content
                       side="top"
                       className="bg-black text-white text-xs px-2 py-1 rounded shadow"
@@ -324,6 +325,13 @@ const handleBookmark = async () => {
               );
             })}
           </div>
+
+          <button
+            onClick={() => openThread(message)}
+            className="text-xs text-blue-500 mt-1 hover:underline"
+          >
+            View replies
+          </button>
 
 
       </div>

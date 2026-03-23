@@ -7,6 +7,9 @@ export const getMessages = ({ channelId, userId }) => {
   });
 };
 
+export const replyToMessage = (messageId, data) =>
+  api.post(`/messages/reply/${messageId}`, data);
+
 
 /* MARK AS READ */
 export const markAsRead = (messageId) => {

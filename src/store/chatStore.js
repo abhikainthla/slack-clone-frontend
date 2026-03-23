@@ -10,20 +10,42 @@ const useChatStore = create((set, get) => ({
   activeChannel: null,
   messages: [],
   userId: null,
+  unreadDMs: {},
 
 dmUser: null,
 isDM: false,
 
 setDM: (user) => {
   socket.emit("join_dm", user._id);
-  set({
+
+  set((state) => ({
     isDM: true,
     dmUser: user,
     activeChannel: null,
     messages: [],
-  });
+    unreadDMs: {
+      ...state.unreadDMs,
+      [user._id]: 0, 
+    },
+  }));
 },
 
+
+incrementUnread: (userId) =>
+  set((state) => ({
+    unreadDMs: {
+      ...state.unreadDMs,
+      [userId]: (state.unreadDMs[userId] || 0) + 1,
+    },
+  })),
+
+clearUnread: (userId) =>
+  set((state) => ({
+    unreadDMs: {
+      ...state.unreadDMs,
+      [userId]: 0,
+    },
+  })),
 
 
 clearDM: () =>
@@ -31,6 +53,39 @@ clearDM: () =>
     isDM: false,
     dmUser: null,
   }),
+
+  threadMessage: null,
+threadReplies: [],
+
+openThread: (message) =>
+  set({
+    threadMessage: message,
+    threadReplies: [],
+  }),
+
+closeThread: () =>
+  set({
+    threadMessage: null,
+    threadReplies: [],
+  }),
+
+  addThreadReply: (reply) =>
+  set((state) => {
+    const exists = state.threadReplies.some(
+      (r) => r._id === reply._id
+    );
+
+    if (exists) return state;
+
+    return {
+      threadReplies: [...state.threadReplies, reply],
+    };
+  }),
+
+
+setThreadReplies: (replies) =>
+  set({ threadReplies: replies }),
+
 
 
   // Workspace actions
@@ -112,27 +167,34 @@ setMessages: (messages) =>
 
   clearMessages: () => set({ messages: [] }),
 
-  updateMessage: (updatedMessage) =>
-  set((state) => ({
-    messages: state.messages.map((m) => {
+updateMessage: (updatedMessage) =>
+  set((state) => {
+    const updateFn = (m) => {
       if (m._id !== updatedMessage._id) return m;
 
       return {
         ...m,
         ...updatedMessage,
-        reactions: updatedMessage.reactions || m.reactions,
-        bookmarkedBy: updatedMessage.bookmarkedBy || m.bookmarkedBy,
-        sender: updatedMessage.sender || m.sender,
+        reactions: updatedMessage.reactions ?? m.reactions,
+        bookmarkedBy: updatedMessage.bookmarkedBy ?? m.bookmarkedBy,
+        pinned: updatedMessage.pinned ?? m.pinned,
+        sender: updatedMessage.sender ?? m.sender,
       };
-    }),
-  })),
+    };
+
+    return {
+      messages: state.messages.map(updateFn),
+      threadReplies: state.threadReplies.map(updateFn),
+    };
+  }),
+
 
 
 
   // Reaction actions (optimistic updates)
 toggleReactionLocal: (messageId, emoji, userId) =>
-  set((state) => ({
-    messages: state.messages.map((m) => {
+  set((state) => {
+    const updateFn = (m) => {
       if (m._id !== messageId) return m;
 
       let reactions = [...(m.reactions || [])];
@@ -140,7 +202,6 @@ toggleReactionLocal: (messageId, emoji, userId) =>
       const index = reactions.findIndex(
         (r) => r.user.toString() === userId.toString()
       );
-
 
       if (index !== -1) {
         if (reactions[index].emoji === emoji) {
@@ -153,14 +214,20 @@ toggleReactionLocal: (messageId, emoji, userId) =>
       }
 
       return { ...m, reactions };
-    }),
-  })),
+    };
+
+    return {
+      messages: state.messages.map(updateFn),
+      threadReplies: state.threadReplies.map(updateFn),
+    };
+  }),
+
 
 toggleBookmarkLocal: (messageId, userId) =>
-  set((state) => ({
-    messages: state.messages.map((m) => {
+  set((state) => {
+    const updateFn = (m) => {
       if (m._id !== messageId) return m;
-      
+
       const bookmarkedBy = [...(m.bookmarkedBy || [])];
       const index = bookmarkedBy.findIndex(
         (id) => id.toString() === userId
@@ -173,8 +240,14 @@ toggleBookmarkLocal: (messageId, userId) =>
       }
 
       return { ...m, bookmarkedBy };
-    }),
-  })),
+    };
+
+    return {
+      messages: state.messages.map(updateFn),
+      threadReplies: state.threadReplies.map(updateFn),
+    };
+  }),
+
 
   onlineUsers: {},
 
