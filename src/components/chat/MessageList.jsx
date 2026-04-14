@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { getMessages, markAsRead } from "../../services/messageService";
+import { getMessages, markAsRead, markChannelRead } from "../../services/messageService";
 import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
 import MessageItem from "./MessageItem";
 import socket from "../../socket/socket";
 import { MessageCircleWarning } from "lucide-react";
 
-export default function MessageList({ messageRefs }) {
+
+export default function MessageList({ messageRefs, loading }){
   const { activeChannel, messages, setMessages, dmUser, isDM } = useChatStore();
   const messagesEndRef = useRef(null);
   const [typingUsers, setTypingUsers] = useState([]);
@@ -94,6 +95,63 @@ export default function MessageList({ messageRefs }) {
 
     return () => socket.off("message_read_update", handleRead);
   }, []);
+
+useEffect(() => {
+  if (!activeChannel?._id || messages.length === 0) return;
+
+  const lastMessage = messages[messages.length - 1];
+
+  const timer = setTimeout(() => {
+    useChatStore.getState().setChannels((channels) =>
+      channels.map((ch) =>
+        ch._id === activeChannel._id
+          ? { ...ch, unreadCount: 0 }
+          : ch
+      )
+    );
+
+    markChannelRead(activeChannel._id, lastMessage._id);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [activeChannel?._id]);
+
+
+
+
+useEffect(() => {
+  const el = messagesEndRef.current;
+  if (!el) return;
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        if (activeChannel?._id && messages.length > 0) {
+          const lastMessage = messages[messages.length - 1];
+
+          // ✅ optimistic update
+          useChatStore.getState().setChannels((channels) =>
+            channels.map((ch) =>
+              ch._id === activeChannel._id
+                ? { ...ch, unreadCount: 0 }
+                : ch
+            )
+          );
+
+          markChannelRead(activeChannel._id, lastMessage._id);
+        }
+      }
+    },
+    { threshold: 1 }
+  );
+
+  observer.observe(el);
+  return () => observer.disconnect();
+}, [messages, activeChannel]);
+
+
+
+
 
   /* ================= SOCKET: TYPING ================= */
   useEffect(() => {

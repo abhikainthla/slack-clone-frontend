@@ -146,9 +146,20 @@ const handleBookmark = async () => {
 
       {/* Avatar */}
       <div className="relative">
-        <div className="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center">
-          {message?.sender?.name?.[0] || "U"}
-        </div>
+        <div className="w-10 h-10 rounded-full overflow-hidden">
+        {message?.sender?.avatar ? (
+          <img
+            src={message.sender.avatar}
+            alt={message.sender.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-indigo-500 text-white flex items-center justify-center font-semibold">
+            {message?.sender?.name?.[0]?.toUpperCase() || "U"}
+          </div>
+        )}
+      </div>
+
 
         {isOnline && (
           <span className="absolute bottom-0 right-0">
@@ -296,16 +307,51 @@ const handleBookmark = async () => {
                         <span>{reaction.emoji}</span>
 
                         {/* Avatar stack */}
-                        <div className="flex -space-x-2">
-                          {reaction.users.slice(0, 3).map((u, idx) => (
-                            <div
-                              key={idx}
-                              className="w-5 h-5 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center border"
-                            >
-                              {typeof u === "object" ? u.name?.[0] : "U"}
-                            </div>
-                          ))}
-                        </div>
+                          <div className="flex -space-x-2">
+                            {reaction.users.slice(0, 3).map((u, idx) => (
+                              <div
+                                key={idx}
+                                className="w-5 h-5 rounded-full overflow-hidden border bg-indigo-500 text-white text-xs flex items-center justify-center"
+                              >
+                                {(() => {
+                                  // if populated user object
+                                  if (typeof u === "object" && u !== null) {
+                                    if (u.avatar) {
+                                      return (
+                                        <img
+                                          src={u.avatar}
+                                          alt={u.name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      );
+                                    }
+
+                                    return (
+                                      <span>
+                                        {u.name?.[0]?.toUpperCase() || "U"}
+                                      </span>
+                                    );
+                                  }
+
+                                  // fallback if only userId (optimistic update case)
+                                  if (u === user._id) {
+                                    return user.avatar ? (
+                                      <img
+                                        src={user.avatar}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <span>{user.name?.[0]?.toUpperCase()}</span>
+                                    );
+                                  }
+
+                                  return <span>U</span>;
+                                })()}
+
+                              </div>
+                            ))}
+                          </div>
+
 
                         <span className="text-xs">{reaction.users.length}</span>
                       </div>

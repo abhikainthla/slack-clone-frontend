@@ -16,21 +16,29 @@ export default function Login() {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    try {
-      const res = await loginUser(form);
-      setAuth(res.data.user, res.data.token);
+  try {
+    const res = await loginUser(form);
+
+    setAuth(res.data.user, res.data.token);
+
+    if (!res.data.user.isOnboarded) {
+      navigate("/usersetup");
+    } else {
       navigate("/workspace");
-    } catch (err) {
-      setError(err?.response?.data?.message || "Login failed");
-    } finally {
-      setLoading(false);
     }
-  };
+
+  } catch (err) {
+    setError(err?.response?.data?.message || "Login failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="h-screen grid grid-cols-2">

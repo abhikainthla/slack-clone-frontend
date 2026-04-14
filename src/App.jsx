@@ -11,6 +11,8 @@ import JoinWorkspace from "./pages/JoinWorkspace";
 import useChatStore from "./store/chatStore";
 import socket from "./socket/socket";
 import { Toaster } from "react-hot-toast";
+import UserSetup from "./pages/UserSetup";
+import Settings from "./pages/Settings";
 
 function App() {
   const hydrateUser = useAuthStore((s) => s.hydrateUser);
@@ -114,6 +116,60 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
+  const handleChannelMessage = (msg) => {
+    const store = useChatStore.getState();
+    const { activeChannel } = store;
+    const currentUser = useAuthStore.getState().user;
+
+    // ❌ ignore own messages
+    if (msg.sender?._id === currentUser?._id) return;
+
+    if (activeChannel?._id !== msg.channel) {
+  store.setChannels((channels) =>
+    channels.map((ch) =>
+      ch._id === msg.channel
+        ? {
+            ...ch,
+            unreadCount: (ch.unreadCount || 0) + 1,
+          }
+        : ch
+    )
+  );
+}
+
+  };
+
+  socket.on("receive_message", handleChannelMessage);
+
+  return () => socket.off("receive_message", handleChannelMessage);
+}, []);
+
+
+useEffect(() => {
+  const handleRead = ({ channelId, userId }) => {
+    const store = useChatStore.getState();
+    const currentUser = useAuthStore.getState().user;
+
+    // ✅ Only update for yourself
+    if (userId !== currentUser._id) return;
+
+    store.setChannels((channels) =>
+      channels.map((ch) =>
+        ch._id === channelId
+          ? { ...ch, unreadCount: 0 }
+          : ch
+      )
+    );
+  };
+
+  socket.on("notifications_read", handleRead);
+
+  return () => socket.off("notifications_read", handleRead);
+}, []);
+
+
+
+useEffect(() => {
   const handleDM = (msg) => {
     const store = useChatStore.getState();
     const { dmUser, isDM } = store;
@@ -123,13 +179,19 @@ useEffect(() => {
       isDM &&
       dmUser &&
       (msg.sender._id === dmUser._id ||
-        msg.conversation?.members?.includes(dmUser._id))
+        msg.sender._id === user._id)
+
     ) {
       store.addMessage(msg);
     }
 
     // ✅ Always update unread count
+    if (msg.sender._id !== user._id) {
+  if (!isDM || dmUser?._id !== msg.sender._id) {
     store.incrementUnread(msg.sender._id);
+  }
+}
+
   };
 
   socket.on("receive_dm", handleDM);
@@ -153,6 +215,8 @@ useEffect(() => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />}/>
         <Route path="/logout" element={<Logout />} />
+        <Route path="/usersetup" element={<UserSetup />} />
+        <Route path="/settings" element={<Settings />} />
 
         {/* Workspace selection */}
         <Route path="/workspace" element={<Workspace />} />

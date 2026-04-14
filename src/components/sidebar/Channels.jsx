@@ -7,6 +7,7 @@ import { getWorkspaceChannels } from "../../services/channelService";
 
 export default function Channels() {
   const { id: workspaceId } = useParams();
+  const [loading, setLoading] = useState(true);
 
   const channels = useChatStore((s) => s.channels);
   const activeChannel = useChatStore((s) => s.activeChannel);
@@ -15,6 +16,7 @@ export default function Channels() {
   const setUserId = useChatStore((s) => s.setUserId);
   const workspace = useChatStore((s) => s.workspace);
   const authUser = useAuthStore((s) => s.user);
+  
 
   const role = workspace?.members?.find(
     (m) => m.user?._id === authUser?._id
@@ -31,18 +33,36 @@ export default function Channels() {
     }
   }, [authUser?._id, setUserId]);
 
-  useEffect(() => {
-    const fetchChannels = async () => {
-      try {
-        const res = await getWorkspaceChannels(workspaceId);
-        setChannels(res.data, authUser?._id);
-      } catch (err) {
-        console.error("Failed to load channels", err);
-      }
-    };
+useEffect(() => {
+  const fetchChannels = async () => {
+    try {
+      const res = await getWorkspaceChannels(workspaceId);
+      setChannels(res.data, authUser?._id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (workspaceId) fetchChannels();
-  }, [workspaceId, authUser?._id, setChannels]);
+  if (workspaceId) fetchChannels();
+}, [workspaceId]);
+
+if (loading) {
+  return (
+    <div className="space-y-2">
+      {[...Array(5)].map((_, i) => (
+        <div
+          key={i}
+          className="h-4 bg-gray-200 rounded animate-pulse"
+        />
+      ))}
+    </div>
+  );
+}
+
+
+
 
   return (
     <div className="mb-6">
@@ -71,6 +91,11 @@ export default function Channels() {
 
       {channels.map((channel) => {
         const isActive = activeChannel?._id === channel._id;
+        const hasUnread =
+          (channel.unreadCount || 0) > 0 ||
+          channel.hasUnread === true;
+
+
 
         return (
           <div
@@ -84,16 +109,18 @@ export default function Channels() {
           >
             <span
               className={`${
-                channel.hasUnread && !isActive
+                hasUnread && !isActive
                   ? "font-bold text-gray-900"
                   : "text-gray-700"
               }`}
             >
               # {channel.name}
             </span>
-            {channel.hasUnread && !isActive && (
+
+            {hasUnread && !isActive && (
               <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
             )}
+
 
             <span className="text-xs text-gray-400">
               {channel.role}

@@ -16,6 +16,15 @@ export const markAsRead = (messageId) => {
   return api.put(`/messages/read-message/${messageId}`);
 };
 
+/* MARK CHANNEL READ */
+export const markChannelRead = (channelId, messageId) => {
+  return api.post(`/messages/read/${channelId}`, {
+    messageId,
+  });
+};
+
+
+
 
 /* ================= REACTIONS ================= */
 

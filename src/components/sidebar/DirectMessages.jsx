@@ -1,7 +1,9 @@
+import { useState } from "react";
 import useAuthStore from "../../store/authStore";
 import useChatStore from "../../store/chatStore";
 
 export default function DirectMessages() {
+  const [loading, setLoading] = useState(true);
   const { workspace, setDM, unreadDMs } = useChatStore();
   const user = useAuthStore((s) => s.user);
 
@@ -15,6 +17,17 @@ export default function DirectMessages() {
         if (!exists) acc.push(curr);
         return acc;
       }, []) || [];
+
+      if (!workspace) {
+  return (
+    <div className="space-y-2">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="h-4 bg-gray-200 rounded animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
 
   return (
     <div>

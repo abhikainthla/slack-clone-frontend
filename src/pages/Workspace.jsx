@@ -79,30 +79,53 @@ useEffect(() => {
         <h1 className="text-xl font-semibold">Your Workspaces</h1>
 
         <div className="flex items-center gap-5">
-          <span className="text-sm text-gray-600">
-            {user?.email}
-          </span>
-          <button
-            onClick={() => {
-              localStorage.removeItem("token");
-              window.location.href = "/login";
-            }}
-            className="
-              flex items-center gap-2 
-              px-4 py-2 
-              rounded-md 
-              text-sm font-medium 
-              text-red-700 
-              border border-red-500
-              hover:bg-red-300 border-none
-              focus:outline-none focus:ring-2 focus:ring-red-300
-              transition-colors
-            "
-          >
-            <LogOut size={20} />
-            Sign Out
-          </button>
+
+        {/* USER PROFILE */}
+        <div
+          onClick={() => navigate("/settings")}
+          className="flex items-center gap-3 cursor-pointer hover:bg-gray-100 px-3 py-1 rounded-lg transition"
+        >
+          {/* Avatar */}
+          {user?.avatar ? (
+            <img
+              src={user.avatar}
+              className="w-9 h-9 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-purple-500 text-white flex items-center justify-center font-semibold">
+              {getInitials(user?.name)}
+            </div>
+          )}
+
+          {/* Name + Email */}
+          <div className="hidden sm:block">
+            <p className="text-sm font-medium">{user?.name}</p>
+            <p className="text-xs text-gray-500">{user?.email}</p>
+          </div>
         </div>
+
+        {/* LOGOUT */}
+        <button
+          onClick={() => {
+            localStorage.removeItem("token");
+            window.location.href = "/login";
+          }}
+          className="
+            flex items-center gap-2 
+            px-4 py-2 
+            rounded-md 
+            text-sm font-medium 
+            text-red-700 
+            hover:bg-red-100
+            transition-colors
+          "
+        >
+          <LogOut size={18} />
+          Sign Out
+        </button>
+
+      </div>
+
       </div>
 
       {/* CONTENT */}

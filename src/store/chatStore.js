@@ -25,7 +25,7 @@ setDM: (user) => {
     messages: [],
     unreadDMs: {
       ...state.unreadDMs,
-      [user._id]: 0, 
+      [user._id]: 0, // ✅ INSTANT CLEAR
     },
   }));
 },
@@ -100,31 +100,71 @@ setThreadReplies: (replies) =>
   setUserId: (userId) => set({ userId }),
 
   // Channel actions
-  setChannels: (channels, userId = get().userId) =>
-    set((state) => {
-      const updated = typeof channels === "function" ? channels(state.channels) : channels;
-      const enriched = userId ? updated.map((ch) => enrichChannel(ch, userId)) : updated;
-      return { channels: enriched };
-    }),
+setChannels: (channels, userId = get().userId) =>
+  set((state) => {
+    const updated =
+      typeof channels === "function"
+        ? channels([...state.channels])
+        : channels;
+
+    const enriched = userId
+      ? updated.map((ch) => ({
+          ...enrichChannel(ch, userId),
+
+
+          unreadCount: ch.unreadCount || 0,
+        }))
+      : updated.map((ch) => ({
+          ...ch,
+          unreadCount: ch.unreadCount || 0,
+        }));
+
+    return { channels: [...enriched] };
+  }),
+
+
 
   setActiveChannel: (channel, userId = get().userId) => {
+      if (channel?._id) {
+    socket.emit("join_channel", channel._id); // ✅ IMPORTANT
+  }
     if (!channel || !channel._id) {
       return set({
-         activeChannel: null,
-         isDM: false,
-         dmUser: null,           
-         messages: [],
-
-        });
+        activeChannel: null,
+        isDM: false,
+        dmUser: null,
+        messages: [],
+      });
     }
+
     const finalChannel = userId ? enrichChannel(channel, userId) : channel;
+
+    set((state) => ({
+      channels: state.channels.map((ch) =>
+        ch._id === channel._id
+          ? { ...ch, unreadCount: 0 }
+          : ch
+      ),
+    }));
+
+    // ✅ 3. SET ACTIVE CHANNEL
     set({
       activeChannel: finalChannel,
-      isDM: false, 
-      dmUser: null,  
+      isDM: false,
+      dmUser: null,
       messages: [],
     });
+
+    // ✅ 4. CALL API (AFTER UI UPDATE)
+    const lastMessageId = channel?.lastMessage?._id;
+
+    if (lastMessageId) {
+      import("../services/messageService").then(({ markChannelRead }) => {
+        markChannelRead(channel._id, lastMessageId);
+      });
+    }
   },
+
 
   // Message actions
 setMessages: (messages) =>

@@ -5,6 +5,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
 import { LogOut, Plus } from "lucide-react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Settings } from "lucide-react";
 
 export default function WorkspaceBar() {
   const [desc, setDesc] = useState("");
@@ -183,9 +185,19 @@ export default function WorkspaceBar() {
       <div className="flex flex-col items-center space-y-3">
 
         {/* USER */}
-        <div className="w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold">
-          {user?.name?.charAt(0)?.toUpperCase() || "U"}
-        </div>
+          <div
+            onClick={() => navigate("/settings")}
+            className="w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-purple-500 transition"
+          >
+            <img
+              src={
+                user?.avatar ||
+                "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
+              }
+              className="w-full h-full object-cover"
+            />
+          </div>
+
 
         {/* LOGOUT */}
         <div
