@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { enrichChannel } from "../utils/channelUtils";
 import socket from "../socket/socket";
 
 const useChatStore = create((set, get) => ({
@@ -100,70 +99,59 @@ setThreadReplies: (replies) =>
   setUserId: (userId) => set({ userId }),
 
   // Channel actions
-setChannels: (channels, userId = get().userId) =>
+setChannels: (channels) =>
   set((state) => {
-    const updated =
+    const updatedChannels =
       typeof channels === "function"
-        ? channels([...state.channels])
+        ? channels(state.channels)
         : channels;
 
-    const enriched = userId
-      ? updated.map((ch) => ({
-          ...enrichChannel(ch, userId),
+    if (!Array.isArray(updatedChannels)) {
+      console.error("❌ channels is not an array:", updatedChannels);
+      return { channels: [] }; // fallback
+    }
 
-
-          unreadCount: ch.unreadCount || 0,
-        }))
-      : updated.map((ch) => ({
-          ...ch,
-          unreadCount: ch.unreadCount || 0,
-        }));
-
-    return { channels: [...enriched] };
+    return {
+      channels: updatedChannels.map((ch) => ({
+        ...ch,
+        unreadCount: ch.unreadCount || 0,
+      })),
+    };
   }),
 
 
 
-  setActiveChannel: (channel, userId = get().userId) => {
-      if (channel?._id) {
-    socket.emit("join_channel", channel._id); // ✅ IMPORTANT
-  }
-    if (!channel || !channel._id) {
-      return set({
-        activeChannel: null,
-        isDM: false,
-        dmUser: null,
-        messages: [],
-      });
-    }
 
-    const finalChannel = userId ? enrichChannel(channel, userId) : channel;
 
-    set((state) => ({
-      channels: state.channels.map((ch) =>
-        ch._id === channel._id
-          ? { ...ch, unreadCount: 0 }
-          : ch
-      ),
-    }));
-
-    // ✅ 3. SET ACTIVE CHANNEL
-    set({
-      activeChannel: finalChannel,
-      isDM: false,
-      dmUser: null,
+setActiveChannel: (channel) => {
+  if (!channel?._id) {
+    return set({
+      activeChannel: null,
       messages: [],
     });
+  }
 
-    // ✅ 4. CALL API (AFTER UI UPDATE)
-    const lastMessageId = channel?.lastMessage?._id;
+  socket.emit("join_channel", channel._id);
 
-    if (lastMessageId) {
-      import("../services/messageService").then(({ markChannelRead }) => {
-        markChannelRead(channel._id, lastMessageId);
-      });
-    }
-  },
+  set((state) => ({
+    channels: state.channels.map((ch) =>
+      ch._id === channel._id
+        ? { ...ch, unreadCount: 0 }
+        : ch
+    ),
+    activeChannel: channel,
+    messages: [],
+  }));
+
+  const lastMessageId = channel?.lastMessage?._id;
+
+  if (lastMessageId) {
+    import("../services/messageService").then(({ markChannelRead }) => {
+      markChannelRead(channel._id, lastMessageId);
+    });
+  }
+},
+
 
 
   // Message actions

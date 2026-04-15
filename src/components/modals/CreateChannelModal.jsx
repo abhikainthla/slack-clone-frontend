@@ -13,7 +13,7 @@ export default function CreateChannelModal({ open, onOpenChange }) {
   const setActiveChannel = useChatStore((s) => s.setActiveChannel);
 
   const user = useAuthStore((s) => s.user);
-
+  const [selectedMembers, setSelectedMembers] = useState([]);
   const [name, setName] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,7 +41,9 @@ export default function CreateChannelModal({ open, onOpenChange }) {
         name: name.trim(),
         workspaceId,
         isPrivate,
+        members: isPrivate ? selectedMembers : [],
       });
+
 
       const updatedChannels = [...channels, res.data];
 
@@ -127,6 +129,26 @@ export default function CreateChannelModal({ open, onOpenChange }) {
                   Only invited members can access
                 </p>
               </div>
+
+              {isPrivate && (
+                <div className="mb-4">
+                  <label className="text-sm font-medium">
+                    Add Members
+                  </label>
+
+                  {/* Replace with your user selector */}
+                  <input
+                    placeholder="Enter user IDs (comma separated)"
+                    onChange={(e) =>
+                      setSelectedMembers(
+                        e.target.value.split(",").map((id) => id.trim())
+                      )
+                    }
+                    className="w-full mt-1 border px-3 py-2 rounded"
+                  />
+                </div>
+              )}
+
 
               {/* Toggle */}
               <button

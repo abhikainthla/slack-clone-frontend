@@ -51,3 +51,7 @@ export const demoteMember = (workspaceId, userId) => {
 export const removeMember = (workspaceId, userId) => {
   return api.delete(`/workspaces/${workspaceId}/members/${userId}`);
 };
+
+export const getWorkspaceMembers = (workspaceId) => {
+  return api.get(`/workspaces/${workspaceId}/members`);
+};

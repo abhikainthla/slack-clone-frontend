@@ -22,7 +22,8 @@ export default function Channels() {
     (m) => m.user?._id === authUser?._id
   )?.role;
 
-  const isAdmin = role === "admin" || role === "moderator";
+  const canCreate = role === "admin" || role === "moderator";
+
 
 
   const [open, setOpen] = useState(false);
@@ -70,7 +71,7 @@ if (loading) {
         <p className="text-xs text-gray-400">CHANNELS</p>
 
         {/*  ONLY ADMIN/MODERATOR */}
-        {isAdmin && (
+        {canCreate && (
           <button
             onClick={() => setOpen(true)}
             className="text-sm text-purple-600"
@@ -81,7 +82,7 @@ if (loading) {
       </div>
 
       {/*  MODAL ONLY FOR ADMIN */}
-      {isAdmin && (
+      {canCreate && (
         <CreateChannelModal open={open} onOpenChange={setOpen} />
       )}
 
@@ -90,44 +91,38 @@ if (loading) {
       )}
 
       {channels.map((channel) => {
-        const isActive = activeChannel?._id === channel._id;
-        const hasUnread =
-          (channel.unreadCount || 0) > 0 ||
-          channel.hasUnread === true;
+  const isActive = activeChannel?._id === channel._id;
 
+  const hasUnread =
+    (channel.unreadCount || 0) > 0;
 
+  return (
+    <div
+      key={channel._id}
+      onClick={() => setActiveChannel(channel)}
+      className={`px-2 py-1 rounded cursor-pointer flex justify-between ${
+        isActive
+          ? "bg-purple-200 font-medium"
+          : "hover:bg-gray-100"
+      }`}
+    >
+      <span
+        className={`${
+          hasUnread && !isActive
+            ? "font-bold text-gray-900"
+            : "text-gray-700"
+        }`}
+      >
+        {channel.isPrivate ? "🔒" : "#"} {channel.name}
+      </span>
 
-        return (
-          <div
-            key={channel._id}
-            onClick={() => setActiveChannel(channel, authUser?._id)}
-            className={`px-2 py-1 rounded cursor-pointer flex justify-between ${
-              isActive
-                ? "bg-purple-200 font-medium"
-                : "hover:bg-gray-100"
-            }`}
-          >
-            <span
-              className={`${
-                hasUnread && !isActive
-                  ? "font-bold text-gray-900"
-                  : "text-gray-700"
-              }`}
-            >
-              # {channel.name}
-            </span>
+      <span className="text-xs text-gray-400">
+        {channel.role}
+      </span>
+    </div>
+  );
+})}
 
-            {hasUnread && !isActive && (
-              <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-            )}
-
-
-            <span className="text-xs text-gray-400">
-              {channel.role}
-            </span>
-          </div>
-        );
-      })}
     </div>
   );
 }

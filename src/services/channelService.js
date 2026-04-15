@@ -51,3 +51,20 @@ export const removeModerator = (channelId, userId) => {
 export const getWorkspaceChannels = (workspaceId) => {
   return api.get(`/channels/workspace/${workspaceId}`);
 };
+
+
+export const updateChannelSettings = (channelId, data) => {
+  return api.put(`/channels/${channelId}/settings`, data);
+};
+
+export const updateChannelMembers = (channelId, data) => {
+  return api.put(`/channels/${channelId}/members`, data);
+};
+
+export const updateChannelRole = (channelId, data) => {
+  return api.put(`/channels/${channelId}/role`, data);
+};
+
+export const getChannelMembers = (channelId) => {
+  return api.get(`/channels/${channelId}/members`);
+};

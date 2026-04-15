@@ -144,6 +144,104 @@ useEffect(() => {
   return () => socket.off("receive_message", handleChannelMessage);
 }, []);
 
+useEffect(() => {
+  const handleChannelUpdate = ({ channelId, updates }) => {
+    useChatStore.getState().setChannels((channels) =>
+      channels.map((ch) =>
+        ch._id === channelId ? { ...ch, ...updates } : ch
+      )
+    );
+  };
+
+  socket.on("channel_updated", handleChannelUpdate);
+
+  return () => {
+    socket.off("channel_updated", handleChannelUpdate);
+  };
+}, []);
+
+// ROLE UPDATE
+useEffect(() => {
+  const handler = ({ channelId, userId, role }) => {
+    useChatStore.getState().setChannels((channels) =>
+      channels.map((ch) => {
+        if (ch._id !== channelId) return ch;
+
+        return {
+          ...ch,
+          members: ch.members?.map((m) =>
+            m._id === userId ? { ...m, role } : m
+          ),
+        };
+      })
+    );
+  };
+
+  socket.on("channel_role_updated", ({ channelId, userId, role }) => {
+  useChatStore.getState().setChannels((channels) =>
+    channels.map((ch) => {
+      if (ch._id !== channelId) return ch;
+
+      return {
+        ...ch,
+        members: ch.members?.map((m) =>
+          m._id === userId ? { ...m, role } : m
+        ),
+      };
+    })
+  );
+});
+
+}, []);
+
+// MEMBER UPDATE
+useEffect(() => {
+  const handler = ({ channelId, add, remove }) => {
+    useChatStore.getState().setChannels((channels) =>
+      channels.map((ch) => {
+        if (ch._id !== channelId) return ch;
+
+        return {
+          ...ch,
+          members: [
+            ...(ch.members || []).filter(
+              (m) => !remove.includes(m._id)
+            ),
+            ...add.map((id) => ({ _id: id })),
+          ],
+        };
+      })
+    );
+  };
+
+  socket.on("channel_members_updated", ({ channelId, add, remove }) => {
+  useChatStore.getState().setChannels((channels) =>
+    channels.map((ch) => {
+      if (ch._id !== channelId) return ch;
+
+      let updatedMembers = [...(ch.members || [])];
+
+      // ❌ remove
+      updatedMembers = updatedMembers.filter(
+        (m) => !remove.includes(m._id)
+      );
+
+      // ➕ add (avoid duplicates)
+      add.forEach((id) => {
+        if (!updatedMembers.some((m) => m._id === id)) {
+          updatedMembers.push({ _id: id });
+        }
+      });
+
+      return { ...ch, members: updatedMembers };
+    })
+  );
+});
+
+}, []);
+
+
+
 
 useEffect(() => {
   const handleRead = ({ channelId, userId }) => {
