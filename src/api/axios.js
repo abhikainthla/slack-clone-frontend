@@ -2,17 +2,41 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: "http://localhost:5000/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
 
-  const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // 🔥 Handle 401 globally
+    if (error.response?.status === 401) {
+      console.error("Unauthorized - logging out");
+
+      localStorage.removeItem("token");
+
+      // Optional: redirect to login
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+
+    return Promise.reject(error);
   }
-
-  return config;
-});
+);
 
 export default api;

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import socket from "../socket/socket";
-
+import { persist } from "zustand";
 const useChatStore = create((set, get) => ({
   // State
   workspace: null,
@@ -10,6 +10,10 @@ const useChatStore = create((set, get) => ({
   messages: [],
   userId: null,
   unreadDMs: {},
+  pinnedDMs: [],
+  blockedUsers: [],
+  onlineUsers: {},
+
 
 dmUser: null,
 isDM: false,
@@ -85,6 +89,34 @@ closeThread: () =>
 setThreadReplies: (replies) =>
   set({ threadReplies: replies }),
 
+
+togglePinDM: (userId) =>
+  set((state) => {
+    const exists = state.pinnedDMs.includes(userId);
+
+    return {
+      pinnedDMs: exists
+        ? state.pinnedDMs.filter((id) => id !== userId)
+        : [...state.pinnedDMs, userId],
+    };
+  }),
+
+setBlockedUsers: (users) => set({ blockedUsers: users }),
+
+addBlockedUser: (user) =>
+  set((state) => ({
+    blockedUsers: [...state.blockedUsers, user],
+  })),
+
+removeBlockedUser: (userId) =>
+  set((state) => ({
+    blockedUsers: state.blockedUsers.filter(u => u._id !== userId),
+  })),
+
+setOnlineUsersBulk: (usersMap) =>
+  set(() => ({
+    onlineUsers: usersMap,
+  })),
 
 
   // Workspace actions
@@ -277,13 +309,16 @@ toggleBookmarkLocal: (messageId, userId) =>
   }),
 
 
-  onlineUsers: {},
 
-setUserStatus: (userId, status) =>
+
+setUserStatus: (userId, status, lastSeen) =>
   set((state) => ({
     onlineUsers: {
       ...state.onlineUsers,
-      [userId]: status,
+      [userId]: {
+        status,
+        lastSeen,
+      },
     },
   })),
 

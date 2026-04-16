@@ -13,6 +13,7 @@ import socket from "./socket/socket";
 import { Toaster } from "react-hot-toast";
 import UserSetup from "./pages/UserSetup";
 import Settings from "./pages/Settings";
+import UserProfile from "./pages/UserProfile";
 
 function App() {
   const hydrateUser = useAuthStore((s) => s.hydrateUser);
@@ -22,13 +23,13 @@ function App() {
   }, []);
 
   /*  Emit online when user loads */
-  const user = useAuthStore.getState().user;
-  useEffect(() => {
+  const user = useAuthStore((s) => s.user);
+useEffect(() => {
+  if (!user?._id) return;
 
-    if (user?._id) {
-      socket.emit("user_online", user._id);
-    }
-  }, []);
+  socket.emit("user_online", user._id);
+}, [user]);
+
 
   /*  HANDLE RECONNECT */
   useEffect(() => {
@@ -44,26 +45,41 @@ function App() {
   }, []);
 
   /*  Presence updates */
-  useEffect(() => {
-    socket.on("presence_update", ({ userId, status }) => {
-      useChatStore.getState().setUserStatus(userId, status);
-    });
+useEffect(() => {
+  const handlePresence = ({ userId, status, lastSeen }) => {
+    if (userId) {
+      useChatStore.getState().setUserStatus(userId, status, lastSeen);
+    }
+  };
 
-    return () => socket.off("presence_update");
-  }, []);
+  socket.on("presence_update", handlePresence);
+  return () => socket.off("presence_update", handlePresence);
+}, []);
 
-  useEffect(() => {
-  socket.emit("get_online_users");
+useEffect(() => {
+  const fetchPresence = () => {
+    socket.emit("get_online_users");
+  };
 
-  socket.on("online_users_list", (users) => {
-    const store = useChatStore.getState();
-
+socket.on("online_users_list", (users) => {
+  const newState = {};
+  if (Array.isArray(users)) {
     users.forEach((id) => {
-      store.setUserStatus(id, "online");
+      if (id) newState[id.toString()] = { status: "online", lastSeen: null };
     });
-  });
+  }
+  useChatStore.getState().setOnlineUsersBulk(newState);
+  console.log("ONLINE USERS:", users);
+});
 
-  return () => socket.off("online_users_list");
+  // If socket is already connected when component mounts, fetch immediately
+  if (socket.connected) fetchPresence();
+  socket.on("connect", fetchPresence);
+
+  return () => {
+    socket.off("online_users_list");
+    socket.off("connect", fetchPresence);
+  };
 }, []);
 
 useEffect(() => {
@@ -265,6 +281,23 @@ useEffect(() => {
   return () => socket.off("notifications_read", handleRead);
 }, []);
 
+useEffect(() => {
+  const handleBlocked = ({ blockedUsers }) => {
+    useChatStore.getState().setBlockedUsers(blockedUsers);
+  };
+
+  const handleUnblocked = ({ blockedUsers }) => {
+    useChatStore.getState().setBlockedUsers(blockedUsers);
+  };
+
+  socket.on("user_blocked", handleBlocked);
+  socket.on("user_unblocked", handleUnblocked);
+
+  return () => {
+    socket.off("user_blocked", handleBlocked);
+    socket.off("user_unblocked", handleUnblocked);
+  };
+}, []);
 
 
 useEffect(() => {
@@ -315,6 +348,7 @@ useEffect(() => {
         <Route path="/logout" element={<Logout />} />
         <Route path="/usersetup" element={<UserSetup />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/profile/:id" element={<UserProfile />} />
 
         {/* Workspace selection */}
         <Route path="/workspace" element={<Workspace />} />

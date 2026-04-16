@@ -38,8 +38,8 @@ export default function MessageItem({ message }) {
     ? message?.sender?._id?.toString()
     : message?.sender?.toString();
 
-const isOnline = onlineUsers[senderId] === "online";
-
+  const presence = onlineUsers[senderId] || {};
+  const isOnline = presence.status === "online";
 const isMine = senderId?.toString() === user?._id?.toString();
 
   const isRead = message.readBy?.some((r) => {
@@ -161,7 +161,7 @@ const handleBookmark = async () => {
       </div>
 
 
-        {isOnline && (
+         {isOnline && (
           <span className="absolute bottom-0 right-0">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
