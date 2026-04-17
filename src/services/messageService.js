@@ -18,9 +18,7 @@ export const markAsRead = (messageId) => {
 
 /* MARK CHANNEL READ */
 export const markChannelRead = (channelId, messageId) => {
-  return api.post(`/messages/read/${channelId}`, {
-    messageId,
-  });
+  return api.post(`/messages/read/${channelId}`, { messageId });
 };
 
 

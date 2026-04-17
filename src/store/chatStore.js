@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import socket from "../socket/socket";
-import { persist } from "zustand";
 const useChatStore = create((set, get) => ({
   // State
   workspace: null,
@@ -10,7 +9,7 @@ const useChatStore = create((set, get) => ({
   messages: [],
   userId: null,
   unreadDMs: {},
-  pinnedDMs: [],
+  pinnedDMs: JSON.parse(localStorage.getItem("pinnedDMs") || "[]"),
   blockedUsers: [],
   onlineUsers: {},
 
@@ -94,24 +93,27 @@ togglePinDM: (userId) =>
   set((state) => {
     const exists = state.pinnedDMs.includes(userId);
 
-    return {
-      pinnedDMs: exists
-        ? state.pinnedDMs.filter((id) => id !== userId)
-        : [...state.pinnedDMs, userId],
-    };
+    const updated = exists
+      ? state.pinnedDMs.filter((id) => id !== userId)
+      : [...state.pinnedDMs, userId];
+
+    localStorage.setItem("pinnedDMs", JSON.stringify(updated)); // ✅ persist
+
+    return { pinnedDMs: updated };
   }),
 
 setBlockedUsers: (users) => set({ blockedUsers: users }),
 
 addBlockedUser: (user) =>
   set((state) => ({
-    blockedUsers: [...state.blockedUsers, user],
+    blockedUsers: [...state.blockedUsers, user._id], 
   })),
 
 removeBlockedUser: (userId) =>
   set((state) => ({
-    blockedUsers: state.blockedUsers.filter(u => u._id !== userId),
+    blockedUsers: state.blockedUsers.filter(id => id !== userId),
   })),
+
 
 setOnlineUsersBulk: (usersMap) =>
   set(() => ({
@@ -171,18 +173,27 @@ setActiveChannel: (channel) => {
         ? { ...ch, unreadCount: 0 }
         : ch
     ),
+
     activeChannel: channel,
+
+    // ✅ FIX: RESET DM STATE
+    isDM: false,
+    dmUser: null,
+
     messages: [],
   }));
 
-  const lastMessageId = channel?.lastMessage?._id;
+const lastMessageId = channel?.lastMessage?._id;
 
-  if (lastMessageId) {
-    import("../services/messageService").then(({ markChannelRead }) => {
-      markChannelRead(channel._id, lastMessageId);
-    });
-  }
+if (
+  lastMessageId &&
+  lastMessageId.length === 24 // ✅ quick filter
+) {
+  markChannelRead(channel._id, lastMessageId);
+}
+
 },
+
 
 
 
@@ -214,32 +225,41 @@ setMessages: (messages) =>
   }),
 
   
-  addMessage: (message) =>
-    set((state) => {
-      // Prevent duplicates
-      const exists = state.messages.find((m) => m._id === message._id);
-      if (exists) return state;
-      
-      return {
-        messages: [...state.messages, message],
-      };
-    }),
+addMessage: (message) =>
+  set((state) => {
+    const exists = state.messages.some(
+      (m) =>
+        m._id === message._id ||
+        (message.clientId && m.clientId === message.clientId)
+    );
+
+    if (exists) return state; // ✅ prevent duplicate
+
+    return {
+      messages: [...state.messages, message],
+    };
+  }),
+
+
 
   clearMessages: () => set({ messages: [] }),
 
 updateMessage: (updatedMessage) =>
   set((state) => {
     const updateFn = (m) => {
-      if (m._id !== updatedMessage._id) return m;
+      // ✅ match real OR temp
+      if (
+        m._id === updatedMessage._id ||
+        m._id === updatedMessage.clientId
+      ) {
+        return {
+          ...m,
+          ...updatedMessage,
+          pending: false,
+        };
+      }
 
-      return {
-        ...m,
-        ...updatedMessage,
-        reactions: updatedMessage.reactions ?? m.reactions,
-        bookmarkedBy: updatedMessage.bookmarkedBy ?? m.bookmarkedBy,
-        pinned: updatedMessage.pinned ?? m.pinned,
-        sender: updatedMessage.sender ?? m.sender,
-      };
+      return m;
     };
 
     return {
@@ -247,6 +267,12 @@ updateMessage: (updatedMessage) =>
       threadReplies: state.threadReplies.map(updateFn),
     };
   }),
+deleteMessage: (messageId) =>
+  set((state) => ({
+    messages: state.messages.filter((m) => 
+      m._id !== messageId && m.clientId !== messageId
+    ),
+  })),
 
 
 

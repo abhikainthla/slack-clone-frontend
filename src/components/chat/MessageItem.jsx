@@ -72,7 +72,7 @@ const isMine = senderId?.toString() === user?._id?.toString();
   const handleReaction = async (emoji) => {
   if (!user) return;
 
-  toggleReactionLocal(message._id, emoji, user._id);
+  toggleReactionLocal(message._id, emoji, user?._id);
 
   try {
     await addReaction(message._id, emoji);
@@ -129,13 +129,13 @@ const renderContent = (text) => {
 const handleBookmark = async () => {
   if (!user) return;
   
-  toggleBookmarkLocal(message._id, user._id);
+  toggleBookmarkLocal(message._id, user?._id);
 
   try {
     await toggleBookmark(message._id);
   } catch (err) {
     console.error(err);
-    toggleBookmarkLocal(message._id, user._id);
+    toggleBookmarkLocal(message._id, user?._id);
   }
 };
 
@@ -334,14 +334,14 @@ const handleBookmark = async () => {
                                   }
 
                                   // fallback if only userId (optimistic update case)
-                                  if (u === user._id) {
+                                  if (u === user?._id) {
                                     return user.avatar ? (
                                       <img
-                                        src={user.avatar}
+                                        src={user?.avatar}
                                         className="w-full h-full object-cover"
                                       />
                                     ) : (
-                                      <span>{user.name?.[0]?.toUpperCase()}</span>
+                                      <span>{user?.name?.[0]?.toUpperCase()}</span>
                                     );
                                   }
 

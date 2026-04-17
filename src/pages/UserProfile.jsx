@@ -30,6 +30,7 @@ export default function UserProfile() {
   if (loading || !user) return <ProfileSkeleton />;
 
   // Logic fix: Ensure we use the fetched user object correctly
+
 const presence = onlineUsers[user._id];
 
 // fallback to API data if socket not ready
@@ -40,13 +41,6 @@ const isOnline = status === "online";
 const lastSeen = !isOnline
   ? presence?.lastSeen || user.lastSeen
   : null;
-
-const statusText = isOnline
-  ? "Online"
-  : lastSeen
-  ? `Last seen ${formatLastSeen(lastSeen)}`
-  : "Offline";
-
 const formatLastSeen = (date) => {
   if (!date) return "";
 
@@ -58,6 +52,14 @@ const formatLastSeen = (date) => {
 
   return new Date(date).toLocaleDateString();
 };
+
+const statusText = isOnline
+  ? "Online"
+  : lastSeen
+  ? `Last seen ${formatLastSeen(lastSeen)}`
+  : "Offline";
+
+
 
 
 

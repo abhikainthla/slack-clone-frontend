@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
+import api from "./api/axios";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Workspace from "./pages/Workspace";
@@ -45,16 +45,17 @@ useEffect(() => {
   }, []);
 
   /*  Presence updates */
+const setUserStatus = useChatStore((s) => s.setUserStatus);
+
 useEffect(() => {
-  const handlePresence = ({ userId, status, lastSeen }) => {
-    if (userId) {
-      useChatStore.getState().setUserStatus(userId, status, lastSeen);
-    }
+  const handler = ({ userId, status, lastSeen }) => {
+    if (userId) setUserStatus(userId, status, lastSeen);
   };
 
-  socket.on("presence_update", handlePresence);
-  return () => socket.off("presence_update", handlePresence);
-}, []);
+  socket.on("presence_update", handler);
+  return () => socket.off("presence_update", handler);
+}, [setUserStatus]);
+
 
 useEffect(() => {
   const fetchPresence = () => {
@@ -131,32 +132,60 @@ useEffect(() => {
   return () => socket.off("reaction_update", handleReactionUpdate);
 }, []);
 
+
 useEffect(() => {
-  const handleChannelMessage = (msg) => {
-    const store = useChatStore.getState();
-    const { activeChannel } = store;
-    const currentUser = useAuthStore.getState().user;
+  const handler = ({ workspaceId, userId, role }) => {
+    useChatStore.getState().setWorkspace((ws) => {
+      if (!ws || ws._id !== workspaceId) return ws;
 
-    // ❌ ignore own messages
-    if (msg.sender?._id === currentUser?._id) return;
-
-    if (activeChannel?._id !== msg.channel) {
-  store.setChannels((channels) =>
-    channels.map((ch) =>
-      ch._id === msg.channel
-        ? {
-            ...ch,
-            unreadCount: (ch.unreadCount || 0) + 1,
-          }
-        : ch
-    )
-  );
-}
-
+      return {
+        ...ws,
+        members: ws.members.map((m) =>
+          m.user._id === userId ? { ...m, role } : m
+        ),
+      };
+    });
   };
 
-  socket.on("receive_message", handleChannelMessage);
+  socket.on("workspace_role_updated", handler);
+  return () => socket.off("workspace_role_updated", handler);
+}, []);
 
+useEffect(() => {
+  const handler = ({ workspaceId, userId }) => {
+    useChatStore.getState().setWorkspace((ws) => {
+      if (!ws || ws._id !== workspaceId) return ws;
+
+      return {
+        ...ws,
+        members: ws.members.filter(
+          (m) => m.user._id !== userId
+        ),
+      };
+    });
+  };
+
+  socket.on("workspace_member_removed", handler);
+  return () => socket.off("workspace_member_removed", handler);
+}, []);
+
+useEffect(() => {
+const handleChannelMessage = (msg) => {
+  const store = useChatStore.getState();
+
+  const exists = store.messages.some(
+    (m) =>
+      m._id === msg._id ||
+      (msg.clientId && m.clientId === msg.clientId)
+  );
+
+  if (exists) return;
+
+  store.addMessage(msg);
+};
+
+
+  socket.on("receive_message", handleChannelMessage);
   return () => socket.off("receive_message", handleChannelMessage);
 }, []);
 
@@ -299,36 +328,61 @@ useEffect(() => {
   };
 }, []);
 
+const setBlockedUsers = useChatStore((s) => s.setBlockedUsers);
 
 useEffect(() => {
+  const fetchBlocked = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const res = await api.get("/users/profile");
+
+      setBlockedUsers(res.data.blockedUsers.map(u => u._id));
+    } catch (err) {
+      console.error("❌ Blocked users error:", err);
+    }
+  };
+
+  if (user?._id) fetchBlocked();
+}, [user]);
+
+
+
+
+useEffect(() => {
+  if (!user?._id) return;
+
   const handleDM = (msg) => {
     const store = useChatStore.getState();
     const { dmUser, isDM } = store;
 
-    // ✅ If currently chatting with same user → add message
+    if (!msg?.sender) return;
+
+    const senderId =
+      typeof msg.sender === "object" ? msg.sender._id : msg.sender;
+
+    if (senderId === user._id) return;
+
     if (
       isDM &&
       dmUser &&
-      (msg.sender._id === dmUser._id ||
-        msg.sender._id === user._id)
-
+      senderId === dmUser._id
     ) {
       store.addMessage(msg);
     }
 
-    // ✅ Always update unread count
-    if (msg.sender._id !== user._id) {
-  if (!isDM || dmUser?._id !== msg.sender._id) {
-    store.incrementUnread(msg.sender._id);
-  }
-}
-
+    // unread
+    if (senderId !== user._id && (!isDM || dmUser?._id !== senderId)) {
+      store.incrementUnread(senderId);
+    }
   };
 
   socket.on("receive_dm", handleDM);
-
   return () => socket.off("receive_dm", handleDM);
-}, []);
+}, [user]);
+
+
 
 useEffect(() => {
   if (user?._id) {

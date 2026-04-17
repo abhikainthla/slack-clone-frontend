@@ -12,7 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-import api from "../../api/axios";
+import { getChannelMembers } from "../../services/channelService";
 import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
 import { sendMessage, uploadFile } from "../../services/messageService";
@@ -35,6 +35,7 @@ export default function MessageInput({
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
   const [users, setUsers] = useState([]);
+  const [selectedMentions, setSelectedMentions] = useState([]);
   const typingTimeoutRef = useRef(null);
   const user = useAuthStore((s) => s.user);
 
@@ -43,13 +44,13 @@ export default function MessageInput({
   const { addMessage, activeChannel, dmUser, isDM } = useChatStore();
   const fileInputRef = useRef();
 
-  useEffect(() => {
+useEffect(() => {
   if (!activeChannel?._id || isDM) return;
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get(`/channels/${activeChannel._id}/members`);
-      setUsers(res.data);
+      const res = await getChannelMembers(activeChannel._id);
+      setUsers(res.data); 
     } catch (err) {
       console.error(err);
     }
@@ -58,16 +59,17 @@ export default function MessageInput({
   fetchUsers();
 }, [activeChannel, isDM]);
 
+
 /* ================= HANDLE INPUT ================= */
 const handleChange = (value) => {
   setText(value);
 
   /* ================= MENTION LOGIC ================= */
-  const match = value.match(/@(\w*)$/);
+  const mentionMatch = value.match(/(?:^|\s)@([a-zA-Z0-9._-]*)$/);
 
-  if (match) {
+  if (mentionMatch) {
     setShowMention(true);
-    setMentionQuery(match[1].toLowerCase());
+    setMentionQuery(mentionMatch[1].toLowerCase());
     setMentionIndex(0);
   } else {
     setShowMention(false);
@@ -96,17 +98,29 @@ const handleChange = (value) => {
   }, 1500);
 };
 
-/* ================= FILTER USERS ================= */
-const filteredUsers = users.filter((u) =>
-  u.name.toLowerCase().includes(mentionQuery)
-);
-
 /* ================= SELECT MENTION ================= */
 const selectMention = (user) => {
-  const newText = text.replace(/@(\w*)$/, `@${user.name} `);
+  const newText = text.replace(/(^|\s)@([a-zA-Z0-9._-]*)$/, `$1@${user.name} `);
+
   setText(newText);
+
+  setSelectedMentions((prev) => {
+    if (prev.includes(user._id)) return prev;
+    return [...prev, user._id];
+  });
+
   setShowMention(false);
 };
+
+/* ================= FILTER USERS ================= */
+const filteredUsers = users.filter(
+  (u) =>
+    u._id !== user._id &&
+    (u.name || "").toLowerCase().includes(mentionQuery)
+);
+
+
+
 
 /* ================= KEY HANDLING ================= */
 const handleKeyPress = (e) => {
@@ -176,55 +190,83 @@ const handleKeyPress = (e) => {
   const handleDragLeave = () => setIsDragging(false);
 
   /* ================= SEND ================= */
-  const handleSend = async () => {
-    if (!text.trim() && attachments.length === 0) return;
+const handleSend = async () => {
+  if (!text.trim() && attachments.length === 0) return;
 
-    setIsSending(true);
+  setIsSending(true);
 
-    try {
-      let uploadedUrls = [];
+  // ✅ FIXED: Generate tempId ONCE at top
+  const tempId = crypto.randomUUID();
 
-      if (attachments.length > 0) {
-        const results = await Promise.all(
-          attachments.map((a) =>
-            uploadFile(a.file, (progress) => {
-              setAttachments((prev) =>
-                prev.map((item) =>
-                  item.id === a.id ? { ...item, progress } : item
-                )
-              );
-            })
-          )
-        );
+  try {
+    let uploadedUrls = [];
 
-        uploadedUrls = results.map((r) => r.data.url);
-      }
+    if (attachments.length > 0) {
+      const results = await Promise.all(
+        attachments.map((a) =>
+          uploadFile(a.file, (progress) => {
+            setAttachments((prev) =>
+              prev.map((item) =>
+                item.id === a.id ? { ...item, progress } : item
+              )
+            );
+          })
+        )
+      );
 
-      const payload = {
-        content: text,
-        files: uploadedUrls,
-        parentMessage: parentMessageId,
-        ...(isDM
-          ? { receiverId: dmUser._id }
-          : { channelId: activeChannel._id }),
-      };
-
-      //  THREAD MODE
-      if (isThread && onSendOverride) {
-        await onSendOverride(payload);
-      } else {
-        await sendMessage(payload);
-      }
-
-      setText("");
-      setAttachments([]);
-
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSending(false);
+      uploadedUrls = results.map((r) => r.data.url);
     }
-  };
+
+    // ✅ FIXED: Use single tempId consistently
+    const payload = {
+      content: text.trim(),
+      files: uploadedUrls,
+      mentions: selectedMentions,
+      clientId: tempId, 
+      ...(isDM
+        ? { receiverId: dmUser._id }
+        : { channelId: activeChannel._id }),
+      ...(parentMessageId && { parentMessage: parentMessageId }),
+    };
+
+    /* ================= OPTIMISTIC MESSAGE - FIXED ================= */
+    const optimisticMessage = {
+      _id: tempId,           // ✅ Use as both _id and clientId
+      clientId: tempId,      // ✅ Consistent matching
+      content: payload.content,
+      files: payload.files,
+      sender: user,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+
+    addMessage(optimisticMessage); // ✅ INSTANT RENDER
+
+    /* ================= API CALL ================= */
+    const res = isThread && onSendOverride
+      ? await onSendOverride(payload)
+      : await sendMessage(payload);
+
+    /* ================= REPLACE TEMP MESSAGE - FIXED ================= */
+    if (res?.data) {  // ✅ Check response exists
+      useChatStore.getState().updateMessage({ ...res.data, pending: false });
+    }
+
+    /* ================= CLEAR ================= */
+    setText("");
+    setAttachments([]);
+    setSelectedMentions([]);
+
+  } catch (err) {
+    console.error("Send error:", err);
+    // ✅ Rollback optimistic update
+    useChatStore.getState().deleteMessage(tempId);
+  } finally {
+    setIsSending(false);
+  }
+};
+
+
 
 
 
@@ -237,7 +279,35 @@ const handleKeyPress = (e) => {
       onDragLeave={handleDragLeave}
       className="fixed bottom-0 left-0 w-full flex justify-center px-4"
     >
-      <div className="w-full max-w-3xl bg-white border shadow-2xl rounded-2xl overflow-hidden relative">
+      <div className="w-full max-w-3xl bg-white border shadow-2xl rounded-2xl relative">
+
+                {/* ================= MENTION LIST ================= */}
+            {showMention && filteredUsers.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-2 w-64 bg-white border border-gray-200 shadow-2xl rounded-xl z-[1999] max-h-60 overflow-y-auto py-2">
+                <div className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Members
+                </div>
+                {filteredUsers.map((u, i) => (
+                  <div
+                    key={u._id}
+                    onMouseEnter={() => setMentionIndex(i)} // Better UX: hover updates index
+                    onClick={() => selectMention(u)}
+                    className={`px-3 py-2 cursor-pointer flex items-center gap-3 transition-colors ${
+                      i === mentionIndex ? "bg-blue-600 text-white" : "hover:bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <img
+                      src={u.avatar || "/default-avatar.png"}
+                      className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                      alt={u.name}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{u.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
         {/* DRAG OVERLAY */}
         {isDragging && (
@@ -311,6 +381,7 @@ const handleKeyPress = (e) => {
           </div>
         )}
 
+
         {/* ================= INPUT ================= */}
         <div className="px-3 py-2">
           <div className="flex items-end gap-2">
@@ -342,25 +413,7 @@ const handleKeyPress = (e) => {
               )}
             </button>
           </div>
-          {showMention && filteredUsers.length > 0 && (
-          <div className="absolute bottom-20 left-4 w-60 bg-white border shadow-xl rounded-xl z-50 max-h-60 overflow-y-auto">
-            {filteredUsers.map((u, i) => (
-              <div
-                key={u._id}
-                onClick={() => selectMention(u)}
-                className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${
-                  i === mentionIndex ? "bg-blue-100" : "hover:bg-gray-100"
-                }`}
-              >
-                <img
-                  src={u.avatar}
-                  className="w-6 h-6 rounded-full"
-                />
-                <span className="text-sm">{u.name}</span>
-              </div>
-            ))}
-          </div>
-        )}
+          
 
 
           {/* ACTIONS */}

@@ -34,8 +34,18 @@ export default function DirectMessages() {
 
 
 // Split users into Pinned and Others for better UI hierarchy
-  const pinnedUsers = finalUsers.filter(u => pinnedDMs.includes(u._id));
-  const otherUsers = finalUsers.filter(u => !pinnedDMs.includes(u._id));
+const filteredUsers = finalUsers.filter(
+  u => !blockedUsers.includes(u._id)
+);
+
+const pinnedUsers = filteredUsers.filter(u =>
+  pinnedDMs.includes(u._id)
+);
+
+const otherUsers = filteredUsers.filter(u =>
+  !pinnedDMs.includes(u._id)
+);
+
 
   useEffect(() => {
   const delay = setTimeout(async () => {
@@ -59,15 +69,19 @@ export default function DirectMessages() {
 
 // Filter out blocked users from the main list
 const visibleUsers = otherUsers.filter(
-  u => !blockedUsers.some(b => (b._id || b) === u._id)
+  u => !blockedUsers.includes(u._id)
 );
 
 
+
+const clearUnread = useChatStore((s) => s.clearUnread);
+
 useEffect(() => {
   if (dmUser?._id) {
-    useChatStore.getState().clearUnread(dmUser._id);
+    clearUnread(dmUser._id);
   }
 }, [dmUser]);
+
 
   if (!workspace) return <SkeletonLoader />;
 
@@ -153,7 +167,8 @@ function MemberRow({ user, unread, onSelect, onViewProfile, active }) {
 const isOnline = presence?.status === "online";
 
   const isPinned = pinnedDMs.includes(user._id);
-  const isBlocked = blockedUsers?.some(b => b._id === user._id);
+  const isBlocked = blockedUsers.includes(user._id);
+
 
 const handleBlock = async (user) => {
   addBlockedUser(user);
