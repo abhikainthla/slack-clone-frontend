@@ -116,7 +116,7 @@ return (
             </p>
             {pinnedUsers.map((u) => (
               <MemberRow
-                key={u._id}
+                key={u._id || u.email || u.username}
                 user={u}
                 active={dmUser?._id === u._id}
                 unread={unreadDMs?.[u._id]}
@@ -136,7 +136,7 @@ return (
           )}
           {visibleUsers.map((u) => (
             <MemberRow
-              key={u._id}
+              key={u._id || u.email || u.username}
               user={u}
               active={dmUser?._id === u._id}
               unread={unreadDMs?.[u._id]}

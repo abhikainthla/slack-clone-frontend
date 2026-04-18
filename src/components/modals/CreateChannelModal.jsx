@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useState } from "react";
-import { createChannel } from "../../services/channelService";
+import { createChannel, getChannelMembers } from "../../services/channelService";
 import { useParams } from "react-router-dom";
 import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
@@ -36,26 +36,49 @@ export default function CreateChannelModal({ open, onOpenChange }) {
     setLoading(true);
     setError("");
 
-    try {
-      const res = await createChannel({
-        name: name.trim(),
-        workspaceId,
-        isPrivate,
-        members: isPrivate ? selectedMembers : [],
-      });
+try {
+  const res = await createChannel({
+    name: name.trim(),
+    workspaceId,
+    isPrivate,
+    members: isPrivate ? selectedMembers : [],
+  });
+
+  let members = [];
+
+  try {
+    const membersRes = await getChannelMembers(res.data._id);
+    members = membersRes.data;
+  } catch (err) {
+    if (err.response?.status !== 404) throw err;
+  }
+
+  const newChannel = {
+    ...res.data,
+    members,
+  };
+
+  const workspace = useChatStore.getState().workspace;
+
+  const myRole =
+    workspace?.members?.find(
+      (m) => m.user._id === user?._id
+    )?.role || "member";
+
+  setActiveChannel({
+    ...newChannel,
+    role: myRole,
+  });
 
 
-      const updatedChannels = [...channels, res.data];
 
-      setChannels(updatedChannels, user?._id);
-      setActiveChannel(res.data, user?._id);
+  onOpenChange(false);
+} catch (err) {
+  setError(err.response?.data?.message || "Failed to create channel");
+} finally {
+  setLoading(false);
+}
 
-      onOpenChange(false);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to create channel");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleKeyDown = (e) => {

@@ -18,9 +18,12 @@ export default function Channels() {
   const authUser = useAuthStore((s) => s.user);
   
 
-  const role = workspace?.members?.find(
-    (m) => m.user?._id === authUser?._id
-  )?.role;
+const role =
+  workspace?.members?.find(
+    (m) =>
+      m.user?._id?.toString() === authUser?._id?.toString()
+  )?.role || "member";
+
 
   const canCreate = role === "admin" || role === "moderator";
 
@@ -116,9 +119,10 @@ if (loading) {
         {channel.isPrivate ? "🔒" : "#"} {channel.name}
       </span>
 
-      <span className="text-xs text-gray-400">
-        {channel.role}
-      </span>
+    <span className="text-xs text-gray-400">
+      {role || "member"}
+    </span>
+
     </div>
   );
 })}

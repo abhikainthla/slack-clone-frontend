@@ -14,6 +14,8 @@ import { Toaster } from "react-hot-toast";
 import UserSetup from "./pages/UserSetup";
 import Settings from "./pages/Settings";
 import UserProfile from "./pages/UserProfile";
+import { getChannelMembers, getWorkspaceChannels } from "./services/channelService";
+
 
 function App() {
   const hydrateUser = useAuthStore((s) => s.hydrateUser);
@@ -24,6 +26,8 @@ function App() {
 
   /*  Emit online when user loads */
   const user = useAuthStore((s) => s.user);
+  const workspace = useChatStore((s) => s.workspace);
+
 useEffect(() => {
   if (!user?._id) return;
 
@@ -134,21 +138,40 @@ useEffect(() => {
 
 
 useEffect(() => {
-  const handler = ({ workspaceId, userId, role }) => {
-    useChatStore.getState().setWorkspace((ws) => {
-      if (!ws || ws._id !== workspaceId) return ws;
+socket.on("workspace_role_updated", ({ workspaceId, userId, role }) => {
+  const store = useChatStore.getState();
+  const currentUser = useAuthStore.getState().user;
 
-      return {
-        ...ws,
-        members: ws.members.map((m) =>
-          m.user._id === userId ? { ...m, role } : m
-        ),
-      };
-    });
-  };
+  // ✅ update workspace
+  const ws = store.workspace;
 
-  socket.on("workspace_role_updated", handler);
-  return () => socket.off("workspace_role_updated", handler);
+  if (!ws || ws._id !== workspaceId) return;
+
+  store.setWorkspace({
+    ...ws,
+    members: ws.members.map((m) =>
+      m.user._id.toString() === userId.toString()
+        ? { ...m, role }
+        : m
+    ),
+  });
+
+
+  // ✅ IMPORTANT: update channel roles instantly
+store.setChannels((prevChannels) =>
+  prevChannels.map((ch) => ({
+    ...ch,
+    members: ch.members?.map((m) =>
+      m._id.toString() === userId.toString()
+        ? { ...m, role }
+        : m
+    ),
+  }))
+);
+
+
+});
+
 }, []);
 
 useEffect(() => {
@@ -168,6 +191,78 @@ useEffect(() => {
   socket.on("workspace_member_removed", handler);
   return () => socket.off("workspace_member_removed", handler);
 }, []);
+
+useEffect(() => {
+  const handler = ({ workspaceId, user, role }) => {
+    useChatStore.getState().setWorkspace((ws) => {
+      if (!ws || ws._id !== workspaceId) return ws;
+
+      return {
+        ...ws,
+        members: [
+          ...ws.members,
+          { user, role },
+        ],
+      };
+    });
+  };
+
+  socket.on("workspace_member_added", handler);
+  return () => socket.off("workspace_member_added", handler);
+}, []);
+
+
+useEffect(() => {
+  if (!workspace?._id) return;
+
+  socket.emit("join_workspace", workspace._id);
+
+  return () => {
+    socket.emit("leave_workspace", workspace._id);
+  };
+}, [workspace?._id]);
+
+useEffect(() => {
+  const handler = (updatedWs) => {
+    useChatStore.getState().setWorkspace(updatedWs);
+  };
+
+  socket.on("workspace_updated", handler);
+  return () => socket.off("workspace_updated", handler);
+}, []);
+
+
+useEffect(() => {
+  const handler = ({ workspaceId }) => {
+    const store = useChatStore.getState();
+
+    if (store.workspace?._id === workspaceId) {
+      store.setWorkspace(null);
+      store.setChannels([]);
+      window.location.href = "/workspace"; // or navigate
+    }
+  };
+
+  socket.on("workspace_deleted", handler);
+  return () => socket.off("workspace_deleted", handler);
+}, []);
+
+useEffect(() => {
+  const handler = ({ workspaceId }) => {
+    const store = useChatStore.getState();
+
+    if (store.workspace?._id === workspaceId) {
+      store.setWorkspace(null);
+      store.setChannels([]);
+      alert("You were removed from the workspace");
+      window.location.href = "/workspace";
+    }
+  };
+
+  socket.on("removed_from_workspace", handler);
+  return () => socket.off("removed_from_workspace", handler);
+}, []);
+
 
 useEffect(() => {
 const handleChannelMessage = (msg) => {
@@ -191,11 +286,23 @@ const handleChannelMessage = (msg) => {
 
 useEffect(() => {
   const handleChannelUpdate = ({ channelId, updates }) => {
-    useChatStore.getState().setChannels((channels) =>
+    const store = useChatStore.getState();
+
+    // ✅ update channel list
+    store.setChannels((channels) =>
       channels.map((ch) =>
         ch._id === channelId ? { ...ch, ...updates } : ch
       )
     );
+
+    // ✅ IMPORTANT: update active channel
+    const active = store.activeChannel;
+    if (active?._id === channelId) {
+      store.setActiveChannel({
+        ...active,
+        ...updates,
+      });
+    }
   };
 
   socket.on("channel_updated", handleChannelUpdate);
@@ -205,84 +312,107 @@ useEffect(() => {
   };
 }, []);
 
-// ROLE UPDATE
+
+
+// MEMBER UPDATE
 useEffect(() => {
-  const handler = ({ channelId, userId, role }) => {
-    useChatStore.getState().setChannels((channels) =>
-      channels.map((ch) => {
-        if (ch._id !== channelId) return ch;
 
-        return {
-          ...ch,
-          members: ch.members?.map((m) =>
-            m._id === userId ? { ...m, role } : m
-          ),
-        };
-      })
+socket.on("channel_members_updated", ({ channelId, add, remove }) => {
+  const store = useChatStore.getState();
+  const currentUser = useAuthStore.getState().user;
+
+  store.setChannels((channels) => {
+    const exists = channels.find((ch) => ch._id === channelId);
+
+    // 🟢 CASE 1: USER ADDED → ADD CHANNEL IF NOT EXISTS
+    const isMeAdded = add.some(
+      (id) => id.toString() === currentUser._id.toString()
     );
-  };
 
-  socket.on("channel_role_updated", ({ channelId, userId, role }) => {
-  useChatStore.getState().setChannels((channels) =>
-    channels.map((ch) => {
+    if (isMeAdded) {
+
+      if (exists) return channels;
+
+      // ⚡ fetch fresh channel (IMPORTANT)
+      getWorkspaceChannels(store.workspace._id).then((res) => {
+        store.setChannels(res.data);
+      });
+
+      return channels;
+    }
+
+    // 🔴 CASE 2: USER REMOVED → REMOVE CHANNEL
+    const isMeRemoved = remove.some(
+      (id) => id.toString() === currentUser._id.toString()
+    );
+
+    if (isMeRemoved) {
+      return channels.filter((ch) => ch._id !== channelId);
+    }
+
+
+    // 🟡 CASE 3: JUST UPDATE MEMBERS
+    return channels.map((ch) => {
       if (ch._id !== channelId) return ch;
 
       return {
         ...ch,
-        members: ch.members?.map((m) =>
-          m._id === userId ? { ...m, role } : m
-        ),
+        members: [
+          ...(ch.members || []).filter(
+            (m) => !remove.includes(m._id)
+          ),
+          ...add.map((id) => ({ _id: id })),
+        ],
       };
-    })
-  );
+    });
+  });
+});
+
+
+
+
+
+
+
+}, []);
+
+useEffect(() => {
+socket.on("channel_created", (channel) => {
+  const store = useChatStore.getState();
+  const currentUser = useAuthStore.getState().user;
+  const workspace = store.workspace;
+
+  const myRole =
+    workspace?.members?.find(
+      (m) => m.user._id === currentUser?._id
+    )?.role || "member";
+
+  store.setChannels((channels) => {
+    const exists = channels.some((c) => c._id === channel._id);
+    if (exists) return channels;
+
+    return [
+      ...channels,
+      {
+        ...channel,
+        role: myRole,
+        unreadCount: 0,
+      },
+    ];
+  });
 });
 
 }, []);
 
-// MEMBER UPDATE
 useEffect(() => {
-  const handler = ({ channelId, add, remove }) => {
+  const handler = ({ channelId }) => {
     useChatStore.getState().setChannels((channels) =>
-      channels.map((ch) => {
-        if (ch._id !== channelId) return ch;
-
-        return {
-          ...ch,
-          members: [
-            ...(ch.members || []).filter(
-              (m) => !remove.includes(m._id)
-            ),
-            ...add.map((id) => ({ _id: id })),
-          ],
-        };
-      })
+      channels.filter((ch) => ch._id !== channelId)
     );
   };
 
-  socket.on("channel_members_updated", ({ channelId, add, remove }) => {
-  useChatStore.getState().setChannels((channels) =>
-    channels.map((ch) => {
-      if (ch._id !== channelId) return ch;
-
-      let updatedMembers = [...(ch.members || [])];
-
-      // ❌ remove
-      updatedMembers = updatedMembers.filter(
-        (m) => !remove.includes(m._id)
-      );
-
-      // ➕ add (avoid duplicates)
-      add.forEach((id) => {
-        if (!updatedMembers.some((m) => m._id === id)) {
-          updatedMembers.push({ _id: id });
-        }
-      });
-
-      return { ...ch, members: updatedMembers };
-    })
-  );
-});
-
+  socket.on("channel_deleted", handler);
+  return () => socket.off("channel_deleted", handler);
 }, []);
 
 

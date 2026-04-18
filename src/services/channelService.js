@@ -37,17 +37,13 @@ export const inviteToChannel = (channelId, userId) => {
   return api.post(`/channels/invite/${channelId}`, { userId });
 };
 
-export const addModerator = (channelId, userId) => {
-  return api.post(`/channels/moderator/${channelId}`, { userId });
-};
+/* ✅ ADD MEMBER */
+export const addChannelMember = (channelId, data) =>
+  api.post(`/channels/${channelId}/members`, data);
 
-export const removeModerator = (channelId, userId) => {
-  return api.delete(`/channels/moderator/${channelId}`, {
-    data: { userId },
-  });
-};
-
-
+/* ✅ REMOVE MEMBER (FIX THIS) */
+export const removeChannelMember = (channelId, memberId) =>
+  api.delete(`/channels/${channelId}/members/${memberId}`);
 export const getWorkspaceChannels = (workspaceId) => {
   return api.get(`/channels/workspace/${workspaceId}`);
 };

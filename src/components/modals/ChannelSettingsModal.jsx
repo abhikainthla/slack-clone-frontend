@@ -7,6 +7,8 @@ import {
   updateChannelRole,
   getChannelMembers,
   deleteChannel,
+  addChannelMember,
+  removeChannelMember, 
 } from "../../services/channelService";
 import useChatStore from "../../store/chatStore";
 import toast from "react-hot-toast";
@@ -18,7 +20,15 @@ export default function ChannelSettingsModal({ open, onOpenChange }) {
   const [workspaceMembers, setWorkspaceMembers] = useState([]);
 
   const activeChannel = useChatStore((s) => s.activeChannel);
-  const role = activeChannel?.role;
+  const workspace = useChatStore((s) => s.workspace);
+
+const role =
+  activeChannel?.role ||
+  workspace?.members?.find(
+    (m) => m.user?._id === currentUser?._id
+  )?.role ||
+  "member";
+
 
 /* ✅ unified permission flags */
 const canRename = ["admin", "moderator"].includes(role);
@@ -44,6 +54,12 @@ const canDelete =
       fetchMembers();
     }
   }, [activeChannel, open]);
+
+  useEffect(() => {
+  if (open && activeChannel) {
+    fetchMembers();
+  }
+}, [isPrivate]); 
 
   const fetchMembers = async () => {
     try {
@@ -95,72 +111,88 @@ store.setChannels((prev) =>
 };
 
 
-  const handleSave = async () => {
-    if (
-      name === activeChannel.name &&
-      isPrivate === activeChannel.isPrivate
-    ) {
-      toast("No changes made");
-      return;
-    }
+const handleSave = async () => {
+  if (
+    name === activeChannel.name &&
+    isPrivate === activeChannel.isPrivate
+  ) {
+    toast("No changes made");
+    return;
+  }
 
-    setLoading(true);
-    try {
-      await updateChannelSettings(activeChannel._id, {
-        name,
-        isPrivate,
-      });
+  setLoading(true);
 
-      toast.success("Settings updated");
-      onOpenChange(false);
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Update failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    await updateChannelSettings(activeChannel._id, {
+      name,
+      isPrivate,
+    });
+
+    const store = useChatStore.getState();
 
 
-  const handleAddMember = async () => {
-    if (!newMemberId) return;
-    try {
-      await updateChannelMembers(activeChannel._id, {
-        addByEmail: [newMemberId],
-      });
 
-      toast.success("Member added");
-      setNewMemberId("");
-      fetchMembers();
-    } catch (err) {
-      toast.error("User not found or already in channel");
-    }
-  };
 
-  const handleRemoveMember = async (id) => {
-    try {
-      await updateChannelMembers(activeChannel._id, { remove: [id] });
-      setMembers((prev) => prev.filter((m) => m._id !== id));
-      toast.success("Member removed");
-    } catch (err) {
-      toast.error("Failed to remove member");
-    }
-  };
+    toast.success("Settings updated");
+    onOpenChange(false);
+  } catch (err) {
+    toast.error(err.response?.data?.message || "Update failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
-const handleRoleChange = async (id, newRole) => {
-    try {
-      await updateChannelRole(activeChannel._id, { userId: id, role: newRole });
-      
-      // ✅ Update local state so the select reflects the change
-      setMembers((prev) =>
-        prev.map((m) => (m._id === id ? { ...m, role: newRole } : m))
-      );
 
-      toast.success(`Role updated to ${newRole}`);
-    } catch (err) {
-      toast.error("Permission denied");
-      // Optional: re-fetch members here if you want to be 100% sure UI matches DB
-    }
-  };
+
+const handleAddMember = async () => {
+  if (!newMemberId) return;
+
+  try {
+    const res = await addChannelMember(activeChannel._id, {
+      email: newMemberId,
+    });
+
+    setMembers((prev) => [...prev, res.data.user]);
+    useChatStore.getState().setChannels((channels) =>
+      channels.map((ch) => {
+        if (ch._id !== activeChannel._id) return ch;
+
+        return {
+          ...ch,
+          members: [...(ch.members || []), res.data.user],
+        };
+      })
+    );
+
+
+    toast.success("Member added");
+    setNewMemberId("");
+  } catch (err) {
+    toast.error(err.response?.data?.message || "Failed to add member");
+  }
+};
+
+
+
+const handleRemoveMember = async (id) => {
+  setMembers((prev) => prev.filter((m) => m._id !== id));
+
+  try {
+    await removeChannelMember(activeChannel._id, id);
+
+    toast.success("Member removed");
+  } catch (err) {
+    toast.error("Failed to remove member");
+
+    // rollback
+    fetchMembers();
+  }
+};
+
+
+
+
+
 
   if (!activeChannel) return null;
 
@@ -225,69 +257,57 @@ const handleRoleChange = async (id, newRole) => {
               )}
             </div>
 
-            {/* SECTION: MEMBERS */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Members ({members.length})</h3>
-              {canManageMembers && isPrivate && (
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <UserPlus size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      placeholder="Enter user email..."
-                      value={newMemberId}
-                      onChange={(e) => setNewMemberId(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500"
-                    />
-                  </div>
-                  <button onClick={handleAddMember} className="bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors">
-                    Add
-                  </button>
-                </div>
-              )}
-
-              <div className="space-y-2 mt-4">
-                {members.map((m) => (
-                  <div key={m._id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100">
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                        {m.avatar ? <img src={m.avatar} alt={m.name} className="w-full h-full object-cover" /> : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                            {m.name?.charAt(0)?.toUpperCase() || "U"}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{m.name || "Unknown User"}</p>
-                        <p className="text-[10px] text-gray-400 font-mono">{m._id}</p>
-                      </div>
+              {/* SECTION: MEMBERS */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Members ({members.length})</h3>
+                {canManageMembers && isPrivate && (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <UserPlus size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        placeholder="Enter user email..."
+                        value={newMemberId}
+                        onChange={(e) => setNewMemberId(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500"
+                      />
                     </div>
+                    <button onClick={handleAddMember} className="bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors">
+                      Add
+                    </button>
+                  </div>
+                )}
 
-                    <div className="flex items-center gap-2">
-                      {role === "admin" ? (
-                        <select
-                          className="text-xs bg-white border border-gray-200 rounded-lg p-1 outline-none"
-                          onChange={(e) => handleRoleChange(m._id, e.target.value)}
-                          value={m.role || "member"}
-                        >
-                          <option value="member">Member</option>
-                          <option value="moderator">Moderator</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      ) : (
-                        <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-bold uppercase">
-                          {m.role || "member"}
-                        </span>
-                      )}
+                <div className="space-y-2 mt-4">
+                  {members.map((m) => (
+                    <div key={m._id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100 group">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                          {m.avatar ? <img src={m.avatar} alt={m.name} className="w-full h-full object-cover" /> : (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                              {m.name?.charAt(0)?.toUpperCase() || "U"}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{m.name || "Unknown User"}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">{m._id}</p>
+                        </div>
+                      </div>
+
+                      {/* Improved Remove Button UI */}
                       {canManageMembers && isPrivate && (
-                        <button onClick={() => handleRemoveMember(m._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                        <button
+                          onClick={() => handleRemoveMember(m._id)}
+                          className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Remove member"
+                        >
                           <Trash2 size={16} />
                         </button>
                       )}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
             {/* SECTION: DANGER ZONE (Now inside scroll area) */}
             {canDelete && (

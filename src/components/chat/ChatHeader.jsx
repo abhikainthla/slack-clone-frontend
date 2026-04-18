@@ -1,5 +1,6 @@
 import { useState } from "react";
 import useChatStore from "../../store/chatStore";
+import useAuthStore from "../../store/authStore";
 import ChannelSettingsModal from "../modals/ChannelSettingsModal";
 import RoleBadge from "../common/RoleBadge";
 import { Settings } from "lucide-react";
@@ -10,9 +11,14 @@ export default function ChatHeader({ onJump }) {
   const [open, setOpen] = useState(false);
 
 
-  const { activeChannel, dmUser, isDM } = useChatStore();
+const { activeChannel, dmUser, isDM, workspace } = useChatStore();
+const user = useAuthStore((s) => s.user);
 
-  const role = activeChannel?.role || "member";
+const role =
+  workspace?.members?.find(
+    (m) => m.user._id.toString() === user?._id?.toString()
+  )?.role || "member";
+
 
   return (
     <>

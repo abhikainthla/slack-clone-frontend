@@ -130,20 +130,33 @@ const handleGenerateInvite = async () => {
     }
   };
 
-  const handleRemoveMember = async () => {
-    setLoading(true);
-    try {
-      await api.delete(`/workspaces/${id}/members/${selectedMember._id}`);
-      const workspaceRes = await getWorkspaceById(id);
-      setWorkspace(workspaceRes.data);
-      setRemoveMemberOpen(false);
-      setSelectedMember(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleRemoveMember = async () => {
+  setLoading(true);
+
+  try {
+    useChatStore.getState().setWorkspace((ws) => {
+      if (!ws) return ws;
+
+      return {
+        ...ws,
+        members: ws.members.filter(
+          (m) => m.user._id !== selectedMember._id
+        ),
+      };
+    });
+
+    await api.delete(`/workspaces/${id}/members/${selectedMember._id}`);
+
+    setRemoveMemberOpen(false);
+    setSelectedMember(null);
+
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const getInitials = (name = "") =>
     name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
