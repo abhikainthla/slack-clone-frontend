@@ -18,33 +18,31 @@ export default function DirectMessages() {
 
   const dmUser = useChatStore((s) => s.dmUser);
   const navigate = useNavigate();
-   const members = workspace?.members
-    ?.filter((m) => m.user?._id !== currentUser?._id)
+const members =
+  workspace?.members
+    ?.filter((m) => {
+      return (
+        m?.user?._id &&
+        currentUser?._id &&
+        m.user._id.toString() !== currentUser._id.toString()
+      );
+    })
     ?.reduce((acc, curr) => {
-      if (!acc.find((m) => m.user._id === curr.user._id)) acc.push(curr);
+      const currId = curr?.user?._id?.toString();
+      if (!currId) return acc;
+
+      const exists = acc.find(
+        (m) => m?.user?._id?.toString() === currId
+      );
+
+      if (!exists) acc.push(curr);
+
       return acc;
     }, []) || [];
-  const finalUsers = search ? results : members.map(m => m.user);
-  const sortedUsers = [...finalUsers].sort((a, b) => {
-  const aPinned = pinnedDMs.includes(a._id);
-  const bPinned = pinnedDMs.includes(b._id);
-
-  return bPinned - aPinned;
-});
 
 
-// Split users into Pinned and Others for better UI hierarchy
-const filteredUsers = finalUsers.filter(
-  u => !blockedUsers.includes(u._id)
-);
 
-const pinnedUsers = filteredUsers.filter(u =>
-  pinnedDMs.includes(u._id)
-);
 
-const otherUsers = filteredUsers.filter(u =>
-  !pinnedDMs.includes(u._id)
-);
 
 
   useEffect(() => {
@@ -67,10 +65,27 @@ const otherUsers = filteredUsers.filter(u =>
 
 
 
-// Filter out blocked users from the main list
-const visibleUsers = otherUsers.filter(
-  u => !blockedUsers.includes(u._id)
+const baseUsers = search
+  ? results
+  : members.map((m) => m.user);
+
+const cleanUsers = baseUsers
+  .filter((u) => u?._id)
+  .filter((u) => !blockedUsers.includes(u._id));
+
+const sortedUsers = cleanUsers.sort((a, b) => {
+  return pinnedDMs.includes(b._id) - pinnedDMs.includes(a._id);
+});
+
+// split
+const pinnedUsers = sortedUsers.filter(u =>
+  pinnedDMs.includes(u._id)
 );
+
+const otherUsers = sortedUsers.filter(u =>
+  !pinnedDMs.includes(u._id)
+);
+
 
 
 
@@ -80,7 +95,7 @@ useEffect(() => {
   if (dmUser?._id) {
     clearUnread(dmUser._id);
   }
-}, [dmUser]);
+}, [dmUser, clearUnread]);
 
 
   if (!workspace) return <SkeletonLoader />;
@@ -116,7 +131,7 @@ return (
             </p>
             {pinnedUsers.map((u) => (
               <MemberRow
-                key={u._id || u.email || u.username}
+                key={`${u._id}-${u.email}`}
                 user={u}
                 active={dmUser?._id === u._id}
                 unread={unreadDMs?.[u._id]}
@@ -134,9 +149,9 @@ return (
               Everyone Else
             </p>
           )}
-          {visibleUsers.map((u) => (
+          {otherUsers.map((u) => (
             <MemberRow
-              key={u._id || u.email || u.username}
+              key={`${u._id}-${u.email}`}
               user={u}
               active={dmUser?._id === u._id}
               unread={unreadDMs?.[u._id]}
@@ -144,7 +159,7 @@ return (
               onViewProfile={() => navigate(`/profile/${u._id}`)}
             />
           ))}
-          {finalUsers.length === 0 && search && (
+          {cleanUsers.length === 0 && search && (
             <p className="text-center text-xs text-gray-400 py-4">No teammates found</p>
           )}
         </div>
@@ -163,7 +178,7 @@ function MemberRow({ user, unread, onSelect, onViewProfile, active }) {
     removeBlockedUser ,
     setBlockedUsers 
   } = useChatStore();
-  const presence = onlineUsers[user._id];
+  const presence = onlineUsers?.[user?._id];
 const isOnline = presence?.status === "online";
 
   const isPinned = pinnedDMs.includes(user._id);
@@ -171,17 +186,16 @@ const isOnline = presence?.status === "online";
 
 
 const handleBlock = async (user) => {
-  addBlockedUser(user);
+  addBlockedUser(user._id); // ✅ only ID
 
   try {
     await api.post("/users/block", { userId: user._id });
     toast.success("User blocked");
   } catch (err) {
-    removeBlockedUser(user._id); // rollback
+    removeBlockedUser(user._id);
     toast.error("Failed to block user");
   }
 };
-
 
 const handleUnblock = async (id) => {
   removeBlockedUser(id);
@@ -190,11 +204,11 @@ const handleUnblock = async (id) => {
     await api.post("/users/unblock", { userId: id });
     toast.success("User unblocked");
   } catch (err) {
-    // rollback
-    addBlockedUser({ _id: id });
+    addBlockedUser(id);
     toast.error("Failed to unblock user");
   }
 };
+
 
 
 
@@ -247,10 +261,9 @@ const handleUnblock = async (id) => {
 
           <div className="flex items-center gap-2">
             {unread > 0 && (
-              <span className="bg-blue-600 text-white text-[10px] font-black h-5 w-5 flex items-center justify-center rounded-full shadow-lg shadow-blue-200">
-                {unread}
-              </span>
+              <span className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse" />
             )}
+
             {isPinned && <Pin size={12} className="text-gray-300 group-hover:text-blue-400" />}
           </div>
         </div>

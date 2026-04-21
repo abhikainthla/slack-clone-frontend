@@ -16,8 +16,9 @@ const user = useAuthStore((s) => s.user);
 
 const role =
   workspace?.members?.find(
-    (m) => m.user._id.toString() === user?._id?.toString()
+    (m) => m?.user?._id === user?._id
   )?.role || "member";
+
 
 
   return (

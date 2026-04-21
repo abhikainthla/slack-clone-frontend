@@ -41,7 +41,7 @@ export default function Workspace() {
 const fetchNotifications = async () => {
   try {
     const res = await api.get("/notifications"); 
-    setNotifications(res.data);
+    setNotifications(res.data.notifications || []);
   } catch (err) {
     console.error(err);
   }
@@ -154,9 +154,8 @@ useEffect(() => {
                 key={ws._id}
                onClick={async () => {
           try {
-            await api.put(`/notifications/read/${ws._id}`);
+            
 
-            // remove locally
             setNotifications((prev) =>
               prev.filter(
                 (n) =>

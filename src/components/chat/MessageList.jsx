@@ -5,6 +5,8 @@ import useAuthStore from "../../store/authStore";
 import MessageItem from "./MessageItem";
 import socket from "../../socket/socket";
 import { MessageCircleWarning } from "lucide-react";
+import api from "../../api/axios";
+
 
 
 export default function MessageList({ messageRefs, loading }){
@@ -24,9 +26,10 @@ export default function MessageList({ messageRefs, loading }){
       };
     }
 
-    if (isDM && dmUser?._id && user?._id) {
-      socket.emit("join_user", user._id);
+    if (isDM && dmUser?._id) {
+      socket.emit("join_user", dmUser._id);
     }
+
   }, [activeChannel, isDM, dmUser, user]);
 
 
@@ -110,7 +113,12 @@ useEffect(() => {
       )
     );
 
-    markChannelRead(activeChannel._id, lastMessage._id);
+
+    if (lastMessage?._id) {
+  markChannelRead(activeChannel._id, lastMessage._id);
+ }
+
+ 
   }, 500);
 
   return () => clearTimeout(timer);
@@ -187,6 +195,12 @@ useEffect(() => {
 
         if (isDM && dmUser?._id) {
           res = await getMessages({ userId: dmUser._id });
+
+          
+          await api.post(`/messages/read/dm/${dmUser._id}`);
+          socket.emit("dm_read", { userId: dmUser._id });
+
+
         } else if (activeChannel?._id) {
           res = await getMessages({ channelId: activeChannel._id });
         } else {
@@ -268,6 +282,34 @@ useEffect(() => {
 
     return () => clearTimeout(timeout);
   }, [messages]);
+
+  useEffect(() => {
+  const handleChannelRead = ({ channelId, userId, messageId }) => {
+    const state = useChatStore.getState();
+
+    state.messages.forEach((msg) => {
+      if (
+        msg.channel === channelId &&
+        msg._id <= messageId
+      ) {
+        const already = msg.readBy?.some(
+          (r) =>
+            (r.user?._id || r.user)?.toString() === userId
+        );
+
+        if (!already) {
+          state.updateMessage({
+            _id: msg._id,
+            readBy: [...(msg.readBy || []), { user: userId }],
+          });
+        }
+      }
+    });
+  };
+
+  socket.on("channel_read_update", handleChannelRead);
+  return () => socket.off("channel_read_update", handleChannelRead);
+}, []);
 
 
   /* ================= AUTO SCROLL ================= */

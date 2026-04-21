@@ -25,14 +25,16 @@ api.interceptors.response.use(
   (error) => {
     // 🔥 Handle 401 globally
     if (error.response?.status === 401) {
-      console.error("Unauthorized - logging out");
+  const token = localStorage.getItem("token");
 
-      localStorage.removeItem("token");
+  if (token) {
+    localStorage.removeItem("token");
 
-      // Optional: redirect to login
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
-      }
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
+  }
+
     }
 
     return Promise.reject(error);

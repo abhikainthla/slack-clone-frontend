@@ -3,7 +3,8 @@ import * as Popover from "@radix-ui/react-popover";
 import * as Dialog from "@radix-ui/react-dialog";
 import { 
   Settings, Check, Trash, Pencil, UserPlus, X, 
-  Loader2, Copy, CheckCircle2, Link as LinkIcon 
+  Loader2, Copy, CheckCircle2, Link as LinkIcon, 
+  Search
 } from "lucide-react";
 import Channels from "../sidebar/Channels";
 import DirectMessages from "../sidebar/DirectMessages";
@@ -18,6 +19,7 @@ import {
   generateInviteLink // Ensure this is imported
 } from "../../services/workspaceService";
 import MembersPanel from "../chat/MembersPanel";
+import useAuthStore from "../../store/authStore";
 
 export default function Sidebar() {
   const { id } = useParams();
@@ -29,6 +31,12 @@ export default function Sidebar() {
   const channels = useChatStore((s) => s.channels);
   const workspace = useChatStore((s) => s.workspace);
   const isAdmin = workspace?.role === "admin";
+  const role = workspace?.role;
+
+  const user = useAuthStore((s) => s.user);
+  const isOwner = workspace?.owner?._id === user?._id;
+  const isModerator = role === "moderator";
+
 
   /* UI STATE */
   const [open, setOpen] = useState(false);
@@ -37,6 +45,9 @@ export default function Sidebar() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = useState(false);
   const [removeMemberOpen, setRemoveMemberOpen] = useState(false);
+  const [channelFilter, setChannelFilter] = useState("");
+  const [sortOption, setSortOption] = useState("az");
+  const [filterStatus, setFilterStatus] = useState("all");
   
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceColor, setWorkspaceColor] = useState("");
@@ -75,6 +86,13 @@ export default function Sidebar() {
   }, [id, setChannels, setWorkspace, navigate]);
 
   /* ACTIONS */
+
+  const handleOpenWorkspaceInfo = () => {
+    navigate(`/workspace/${id}/info`);
+    setOpen(false); // close popover
+  };
+
+
   const handleDelete = async () => {
     setLoading(true);
     try {
@@ -157,6 +175,27 @@ const handleRemoveMember = async () => {
   }
 };
 
+const handleMarkAsRead = async () => {
+  try {
+    await api.put(`/workspaces/${id}/mark-read`);
+
+    setChannels(
+      channels.map((c) => ({
+        ...c,
+        unreadCount: 0,
+      }))
+    );
+    setOpen(false);
+
+  } catch (err) {
+    console.error("Mark as read failed:", err);
+  }
+};
+
+
+
+
+
 
   const getInitials = (name = "") =>
     name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -168,7 +207,9 @@ const handleRemoveMember = async () => {
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold ${workspace?.color || "bg-purple-500"}`}>
+          <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center cursor-pointer justify-center text-white font-semibold ${workspace?.color || "bg-purple-500"}`}
+          onClick={handleOpenWorkspaceInfo}
+          >
             {getInitials(workspace?.name || "W")}
           </div>
           <h2 className="font-semibold text-md truncate">
@@ -186,110 +227,195 @@ const handleRemoveMember = async () => {
           <Popover.Content className="bg-white w-56 p-2 rounded-xl shadow-lg border z-[60]" sideOffset={5}>
             <p className="text-[10px] font-bold uppercase text-gray-400 px-2 py-1">Workspace Settings</p>
 
-            <button onClick={() => setUpdateOpen(true)} className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded">
-              <Pencil size={14} /> Update Details
-            </button>
+           {/* VIEW INFO - everyone */}
+<button
+  onClick={handleOpenWorkspaceInfo}
+  className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded font-medium text-indigo-600"
+>
+  <Settings size={14} /> View Workspace Info
+</button>
 
-            <button onClick={() => setMembersDialogOpen(true)} className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded">
-              <UserPlus size={14} /> Manage Members
-            </button>
 
-            {/* UPDATED INVITE BUTTON IN POPOVER */}
-            <button 
-              onClick={() => { setInviteOpen(true); setOpen(false); }} 
-              className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded text-purple-600 font-medium"
-            >
-              <LinkIcon size={14} /> Invite via Link
-            </button>
+{/* UPDATE - only ADMIN */}
+{isAdmin && (
+  <button
+    onClick={() => setUpdateOpen(true)}
+    className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded"
+  >
+    <Pencil size={14} /> Update Details
+  </button>
+)}
 
-            <div className="border-t my-1"></div>
+{/* MANAGE MEMBERS - only ADMIN */}
+{isAdmin && (
+  <button
+    onClick={() => setMembersDialogOpen(true)}
+    className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded"
+  >
+    <UserPlus size={14} /> Manage Members
+  </button>
+)}
+<div className="border-t my-1"></div>
 
-            <button onClick={() => setDeleteOpen(true)} className="flex items-center gap-2 w-full px-2 py-2 text-sm text-red-500 hover:bg-red-50 rounded">
-              <Trash size={14} /> Delete Workspace
-            </button>
+<p className="text-[10px] font-bold uppercase text-slate-400 px-3 py-2 mt-2">Filter & Sort Channels</p>
+
+<div className="px-2 space-y-2 mb-3">
+  {/* Filter by Status */}
+  <div className="relative">
+    <select
+      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all appearance-none cursor-pointer text-slate-700"
+      onChange={(e) => setFilterStatus(e.target.value)}
+      value={filterStatus}
+    >
+      <option value="all">All Channels</option>
+      <option value="public">Public</option>
+      <option value="private">Private</option>
+    </select>
+  </div>
+
+  {/* Sort by */}
+  <div className="relative">
+    <select
+      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all appearance-none cursor-pointer text-slate-700"
+      onChange={(e) => setSortOption(e.target.value)}
+      value={sortOption}
+    >
+      <option value="az">Name: A-Z</option>
+      <option value="newest">Newest First</option>
+    </select>
+  </div>
+</div>
+<div className="border-t my-1"></div>
+
+<button
+  onClick={handleMarkAsRead}
+  className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded text-green-600 font-medium"
+>
+  <Check size={14} /> Mark all as read
+</button>
+
+{/* INVITE - ADMIN + MODERATOR */}
+{(isAdmin || isModerator) && (
+  <button 
+    onClick={() => { setInviteOpen(true); setOpen(false); }} 
+    className="flex items-center gap-2 w-full px-2 py-2 text-sm hover:bg-gray-100 rounded text-purple-600 font-medium"
+  >
+    <LinkIcon size={14} /> Invite via Link
+  </button>
+)}
+
+
+
+<div className="border-t my-1"></div>
+
+{/* DELETE - ONLY OWNER */}
+{isOwner && (
+  <button
+    onClick={() => setDeleteOpen(true)}
+    className="flex items-center gap-2 w-full px-2 py-2 text-sm text-red-500 hover:bg-red-50 rounded"
+  >
+    <Trash size={14} /> Delete Workspace
+  </button>
+)}
+
             <Popover.Arrow className="fill-white" />
           </Popover.Content>
         </Popover.Root>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <Channels channels={channels} />
+      <div className="flex-1 overflow-y-auto mt-2">
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+          <input
+            type="text"
+            placeholder="Search channels..."
+            className="w-full pl-9 pr-3 py-2 text-sm bg-gray-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+            value={channelFilter}
+            onChange={(e) => setChannelFilter(e.target.value)}
+          />
+        </div>
+        <Channels 
+          channels={channels} 
+          filter={channelFilter} 
+          sort={sortOption} 
+          status={filterStatus} 
+        />
         <DirectMessages />
       </div>
       {/* UPDATE WORKSPACE MODAL */}
       <Dialog.Root open={updateOpen} onOpenChange={setUpdateOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl w-96 max-h-[90vh] overflow-y-auto z-50">
-            <Dialog.Title className="text-lg font-semibold mb-4 flex items-center justify-between">
-              Update Workspace
+          <Dialog.Overlay className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-8 rounded-2xl w-[520px] shadow-2xl z-50 border border-slate-100">
+            <div className="flex justify-between items-center mb-6">
+              <Dialog.Title className="text-xl font-bold text-slate-900">Update Workspace</Dialog.Title>
               <Dialog.Close asChild>
-                <button className="p-1 hover:bg-gray-100 rounded">
+                <button className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600">
                   <X size={20} />
                 </button>
               </Dialog.Close>
-            </Dialog.Title>
+            </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Name Input */}
               <div>
-                <label className="block text-sm font-medium mb-2">Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Workspace Name</label>
                 <input
                   type="text"
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="Workspace name"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all"
+                  placeholder="e.g. Design Team"
                 />
               </div>
 
+              {/* Description Input */}
               <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
-                <input
-                  type="text"
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Description</label>
+                <textarea
                   value={workspaceDescription}
                   onChange={(e) => setWorkspaceDescription(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="Optional description"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all h-24 resize-none"
+                  placeholder="What is this workspace for?"
                 />
               </div>
 
+              {/* Color Picker */}
               <div>
-                <label className="block text-sm font-medium mb-2">Color</label>
-                <div className="flex flex-wrap gap-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 ml-1">Theme Color</label>
+                <div className="flex flex-wrap gap-3">
                   {colors.map((color) => (
                     <button
                       key={color}
                       type="button"
                       onClick={() => setWorkspaceColor(color)}
-                      className={`w-10 h-10 rounded-lg border-2 ${
-                        workspaceColor === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      } ${color}`}
+                      className={`w-10 h-10 rounded-xl transition-transform hover:scale-105 ${color} ${
+                        workspaceColor === color ? "ring-4 ring-offset-2 ring-purple-500" : "ring-1 ring-slate-200"
+                      }`}
                     />
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+            <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-100">
               <Dialog.Close asChild>
-                <button className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                <button className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors">
                   Cancel
                 </button>
               </Dialog.Close>
               <button
                 onClick={handleUpdateWorkspace}
                 disabled={loading || !workspaceName.trim()}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-purple-200 disabled:opacity-50 transition-all flex items-center gap-2"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {loading ? "Updating..." : "Update Workspace"}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* MANAGE MEMBERS DIALOG */}
       {/* MANAGE MEMBERS DIALOG */}
 <Dialog.Root open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
   <Dialog.Portal>

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import socket from "../socket/socket";
+import api from "../api/axios";
 const useChatStore = create((set, get) => ({
   // State
   workspace: null,
@@ -12,24 +13,40 @@ const useChatStore = create((set, get) => ({
   pinnedDMs: JSON.parse(localStorage.getItem("pinnedDMs") || "[]"),
   blockedUsers: [],
   onlineUsers: {},
+  notifications: [],
+  notificationCount: 0,
 
 
 dmUser: null,
 isDM: false,
 
-setDM: (user) => {
-  socket.emit("join_dm", user._id);
+setDM: async (user) => {
+  try {
+    socket.emit("join_user", user._id);
 
-  set((state) => ({
-    isDM: true,
-    dmUser: user,
-    activeChannel: null,
-    messages: [],
-    unreadDMs: {
-      ...state.unreadDMs,
-      [user._id]: 0, // ✅ INSTANT CLEAR
-    },
-  }));
+    const res = await api.get(`/messages/conversations/${user._id}`);
+    const conversationId = res.data._id;
+
+    // ✅ FIXED: correct API
+    await api.post(`/messages/read/dm/${user._id}`);
+
+    await api.post(`/notifications/read/dm/${conversationId}`);
+    socket.emit("dm_read", { userId: user._id });
+
+
+    set({
+      isDM: true,
+      dmUser: user,
+      activeChannel: null,
+      messages: [],
+    });
+
+    // ✅ clear unread locally
+    useChatStore.getState().clearUnread(user._id);
+
+  } catch (err) {
+    console.error(err);
+  }
 },
 
 
@@ -104,9 +121,9 @@ togglePinDM: (userId) =>
 
 setBlockedUsers: (users) => set({ blockedUsers: users }),
 
-addBlockedUser: (user) =>
+addBlockedUser: (userId) =>
   set((state) => ({
-    blockedUsers: [...state.blockedUsers, user._id], 
+    blockedUsers: [...new Set([...state.blockedUsers, userId])],
   })),
 
 removeBlockedUser: (userId) =>
@@ -119,6 +136,19 @@ setOnlineUsersBulk: (usersMap) =>
   set(() => ({
     onlineUsers: usersMap,
   })),
+
+  setNotificationCount: (count) => set({ notificationCount: count }),
+  
+  setUnreadDMs: (dms) => set({ unreadDMs: dms }),
+
+setNotifications: (notifications) =>
+  set({
+    notifications,
+    notificationCount: notifications.filter((n) => !n.read).length,
+  }),
+
+
+  
 
 
   // Workspace actions
@@ -157,41 +187,47 @@ setChannels: (channels) =>
 
 
 
-setActiveChannel: (channel) => {
-  if (!channel?._id) {
-    return set({
-      activeChannel: null,
-      messages: [],
+setActiveChannel: async (channel) => {
+  try {
+    if (!channel?._id) {
+      return set({
+        activeChannel: null,
+        messages: [],
+      });
+    }
+
+    // ✅ clear notifications
+    await api.post(`/notifications/read/channel/${channel._id}`);
+    socket.emit("channel_read", {
+      channelId: channel._id,
     });
+
+
+    socket.emit("join_channel", channel._id);
+
+    set((state) => ({
+      channels: state.channels.map((ch) =>
+        ch._id === channel._id
+          ? { ...ch, unreadCount: 0 }
+          : ch
+      ),
+      activeChannel: channel,
+      isDM: false,
+      dmUser: null,
+      messages: [],
+    }));
+
+    if (channel?.lastMessage?._id) {
+    markChannelRead(channel._id, channel.lastMessage._id);
   }
 
-  socket.emit("join_channel", channel._id);
+    const res = await api.get("/notifications");
+set({}); // dummy to trigger
 
-  set((state) => ({
-    channels: state.channels.map((ch) =>
-      ch._id === channel._id
-        ? { ...ch, unreadCount: 0 }
-        : ch
-    ),
-
-    activeChannel: channel,
-
-    // ✅ FIX: RESET DM STATE
-    isDM: false,
-    dmUser: null,
-
-    messages: [],
-  }));
-
-const lastMessageId = channel?.lastMessage?._id;
-
-if (
-  lastMessageId &&
-  lastMessageId.length === 24 // ✅ quick filter
-) {
-  markChannelRead(channel._id, lastMessageId);
-}
-
+useChatStore.getState().setNotifications(res.data.notifications);
+  } catch (err) {
+    console.error("CHANNEL READ ERROR:", err);
+  }
 },
 
 

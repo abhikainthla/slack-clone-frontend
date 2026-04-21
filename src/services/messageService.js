@@ -13,6 +13,7 @@ export const replyToMessage = (messageId, data) =>
 
 /* MARK AS READ */
 export const markAsRead = (messageId) => {
+  if (!messageId || messageId.length !== 24) return; // prevent bad calls
   return api.put(`/messages/read-message/${messageId}`);
 };
 
