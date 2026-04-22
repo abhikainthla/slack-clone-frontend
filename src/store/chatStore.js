@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import socket from "../socket/socket";
 import api from "../api/axios";
+import { markChannelRead } from "../services/messageService";
+const getStoredChannelUnread = () => {
+  try {
+    return JSON.parse(localStorage.getItem("channelUnread") || "{}");
+  } catch {
+    return {};
+  }
+};
+
 const useChatStore = create((set, get) => ({
   // State
   workspace: null,
@@ -9,12 +18,13 @@ const useChatStore = create((set, get) => ({
   activeChannel: null,
   messages: [],
   userId: null,
-  unreadDMs: {},
   pinnedDMs: JSON.parse(localStorage.getItem("pinnedDMs") || "[]"),
   blockedUsers: [],
   onlineUsers: {},
   notifications: [],
   notificationCount: 0,
+  unreadDMs: JSON.parse(localStorage.getItem("unreadDMs") || "{}"),
+
 
 
 dmUser: null,
@@ -30,7 +40,10 @@ setDM: async (user) => {
     // ✅ FIXED: correct API
     await api.post(`/messages/read/dm/${user._id}`);
 
-    await api.post(`/notifications/read/dm/${conversationId}`);
+    if (conversationId) {
+      await api.post(`/notifications/read/dm/${conversationId}`);
+    }
+
     socket.emit("dm_read", { userId: user._id });
 
 
@@ -51,20 +64,30 @@ setDM: async (user) => {
 
 
 incrementUnread: (userId) =>
-  set((state) => ({
-    unreadDMs: {
+  set((state) => {
+    const updated = {
       ...state.unreadDMs,
       [userId]: (state.unreadDMs[userId] || 0) + 1,
-    },
-  })),
+    };
+
+    localStorage.setItem("unreadDMs", JSON.stringify(updated));
+
+    return { unreadDMs: updated };
+  }),
+
 
 clearUnread: (userId) =>
-  set((state) => ({
-    unreadDMs: {
+  set((state) => {
+    const updated = {
       ...state.unreadDMs,
       [userId]: 0,
-    },
-  })),
+    };
+
+    localStorage.setItem("unreadDMs", JSON.stringify(updated));
+
+    return { unreadDMs: updated };
+  }),
+
 
 
 clearDM: () =>
@@ -133,13 +156,21 @@ removeBlockedUser: (userId) =>
 
 
 setOnlineUsersBulk: (usersMap) =>
-  set(() => ({
-    onlineUsers: usersMap,
+  set((state) => ({
+    onlineUsers: {
+      ...state.onlineUsers,
+      ...usersMap,
+    },
   })),
+
 
   setNotificationCount: (count) => set({ notificationCount: count }),
   
-  setUnreadDMs: (dms) => set({ unreadDMs: dms }),
+  setUnreadDMs: (dms) => {
+    localStorage.setItem("unreadDMs", JSON.stringify(dms));
+    set({ unreadDMs: dms });
+  },
+
 
 setNotifications: (notifications) =>
   set({
@@ -165,23 +196,31 @@ setNotifications: (notifications) =>
   // Channel actions
 setChannels: (channels) =>
   set((state) => {
+    const stored = getStoredChannelUnread();
+
     const updatedChannels =
       typeof channels === "function"
         ? channels(state.channels)
         : channels;
 
-    if (!Array.isArray(updatedChannels)) {
-      console.error("❌ channels is not an array:", updatedChannels);
-      return { channels: [] }; // fallback
-    }
-
     return {
-      channels: updatedChannels.map((ch) => ({
-        ...ch,
-        unreadCount: ch.unreadCount || 0,
-      })),
+      channels: updatedChannels.map((ch) => {
+        const existing = state.channels.find(c => c._id === ch._id);
+
+        return {
+          ...ch,
+          unreadCount:
+            ch.unreadCount ??
+            existing?.unreadCount ??
+            stored[ch._id] ??
+            0,
+        };
+      }),
     };
   }),
+
+
+
 
 
 
@@ -196,39 +235,57 @@ setActiveChannel: async (channel) => {
       });
     }
 
-    // ✅ clear notifications
-    await api.post(`/notifications/read/channel/${channel._id}`);
+
+    if (channel?.lastMessage?._id) {
+      await markChannelRead(channel._id, channel.lastMessage._id);
+          const res = await api.get("/notifications");
+    useChatStore.getState().setNotifications(res.data.notifications);
+    }
+
+
     socket.emit("channel_read", {
       channelId: channel._id,
     });
 
-
     socket.emit("join_channel", channel._id);
 
-    set((state) => ({
-      channels: state.channels.map((ch) =>
-        ch._id === channel._id
-          ? { ...ch, unreadCount: 0 }
-          : ch
-      ),
-      activeChannel: channel,
-      isDM: false,
-      dmUser: null,
-      messages: [],
-    }));
+    set((state) => {
+  const updatedChannels = state.channels.map((ch) =>
+    ch._id === channel._id
+      ? { ...ch, unreadCount: 0 }
+      : ch
+  );
 
-    if (channel?.lastMessage?._id) {
-    markChannelRead(channel._id, channel.lastMessage._id);
-  }
+  //  persist
+  const map = {};
+  updatedChannels.forEach(c => {
+    map[c._id] = c.unreadCount || 0;
+  });
+  localStorage.setItem("channelUnread", JSON.stringify(map));
 
-    const res = await api.get("/notifications");
-set({}); // dummy to trigger
+  return {
+    channels: updatedChannels,
+    activeChannel: channel,
+    isDM: false,
+    dmUser: null,
+    messages: [],
+  };
+});
 
-useChatStore.getState().setNotifications(res.data.notifications);
+
+    //  sync notifications locally
+    const store = useChatStore.getState();
+    store.setNotifications(
+      store.notifications.map((n) =>
+        n.channel === channel._id ? { ...n, read: true } : n
+      )
+    );
+
   } catch (err) {
     console.error("CHANNEL READ ERROR:", err);
   }
 },
+
 
 
 

@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import CreateChannelModal from "../modals/CreateChannelModal";
 import useAuthStore from "../../store/authStore";
 import { getWorkspaceChannels } from "../../services/channelService";
+import api from "../../api/axios";
 
 export default function Channels({ filter = "", sort = "az", status = "all" }) {
   const { id: workspaceId } = useParams();
@@ -24,7 +25,13 @@ export default function Channels({ filter = "", sort = "az", status = "all" }) {
   const canCreate = role === "admin" || role === "moderator";
   const [open, setOpen] = useState(false);
 
-  // 2. Use useMemo to process the channels
+  const getStoredChannelUnread = () =>
+  JSON.parse(localStorage.getItem("channelUnread") || "{}");
+
+const setStoredChannelUnread = (data) =>
+  localStorage.setItem("channelUnread", JSON.stringify(data));
+
+
   const processedChannels = useMemo(() => {
     return [...channels]
       .filter((ch) => {
@@ -49,7 +56,7 @@ export default function Channels({ filter = "", sort = "az", status = "all" }) {
     const fetchChannels = async () => {
       try {
         const res = await getWorkspaceChannels(workspaceId);
-        setChannels(res.data, authUser?._id);
+        setChannels(res.data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -58,6 +65,10 @@ export default function Channels({ filter = "", sort = "az", status = "all" }) {
     };
     if (workspaceId) fetchChannels();
   }, [workspaceId]);
+
+
+
+
 
   if (loading) {
     return (

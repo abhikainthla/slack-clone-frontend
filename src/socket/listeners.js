@@ -12,6 +12,7 @@ export const initSocketListeners = () => {
   const getUser = () => auth().user;
 
   /* ================= PRESENCE ================= */
+
   socket.on("presence_update", ({ userId, status, lastSeen }) => {
     if (userId) store().setUserStatus(userId, status, lastSeen);
   });
@@ -26,10 +27,10 @@ export const initSocketListeners = () => {
     store().setOnlineUsersBulk(map);
   });
 
-  socket.on("connect", () => {
-    const user = getUser();
-    if (user?._id) socket.emit("user_online", user._id);
-  });
+
+
+
+
 
   /* ================= MESSAGES ================= */
   socket.on("message_updated", (msg) => {
@@ -40,22 +41,48 @@ socket.on("receive_message", (msg) => {
   const s = store();
   const active = s.activeChannel;
 
+  if (!msg.channel) return;
+
+  s.setChannels((chs) => {
+    const updated = chs.map((c) => {
+      if (c._id !== msg.channel) return c;
+
+      let unread = c.unreadCount || 0;
+
+      if (active?._id !== msg.channel) {
+        unread += 1;
+      } else {
+        unread = 0;
+      }
+
+      return {
+        ...c,
+        lastMessage: msg,
+        unreadCount: unread,
+      };
+    });
+
+    // ✅ persist
+    const map = {};
+    updated.forEach(c => {
+      map[c._id] = c.unreadCount || 0;
+    });
+    localStorage.setItem("channelUnread", JSON.stringify(map));
+
+    return updated;
+  });
+
   if (active?._id === msg.channel) {
     s.addMessage(msg);
-
-    //  mark read instantly
     markChannelRead(msg.channel, msg._id);
-
-  } else {
-    s.setChannels((chs) =>
-      chs.map((c) =>
-        c._id === msg.channel
-          ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
-          : c
-      )
-    );
   }
 });
+
+
+
+
+
+
 
 
 
@@ -216,7 +243,10 @@ socket.on("receive_dm", (message) => {
   if (isDM && dmUser?._id === senderId) {
     s.addMessage(message);
 
-    api.post(`/messages/read/dm/${senderId}`);
+    if (senderId) {
+      api.post(`/messages/read/dm/${senderId}`);
+    }
+
     return;
   }
 
@@ -244,66 +274,48 @@ socket.on("dm_read_update", ({ userId }) => {
 
 
   /* ================= NOTIFICATIONS ================= */
-socket.on("new_notification", (n) => {
+socket.on("new_notification", (notifications) => {
   const s = store();
 
-  // ✅ update notifications
-  s.setNotifications([
-    {
-      _id: n._id,
-      type: n.type,
-      message: n.message,
-      channel: n.channel,
-      conversation: n.conversation,
-      read: false,
-      createdAt: n.createdAt,
-    },
-    ...s.notifications,
-  ]);
+  const normalized = Array.isArray(notifications)
+    ? notifications
+    : [notifications];
 
-  // ✅ sync channel unread
-  if (n.channel) {
-    s.setChannels((chs) =>
-      chs.map((c) =>
-        c._id === n.channel
-          ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
-          : c
-      )
-    );
-  }
+  const map = new Map();
 
-  // ✅ sync DM unread
-  if (n.conversation) {
-    const currentUser = getUser()?._id;
+  [...s.notifications, ...normalized].forEach(n => {
+    map.set(n._id, n);
+  });
 
-    const otherUser = n.conversation.members?.find(
-      (id) => id !== currentUser
-    );
 
-    if (otherUser) {
-      s.incrementUnread(otherUser);
-    }
-  }
+  s.setNotifications(Array.from(map.values()));
+
+
 });
+
+
 
 ;
 
-  socket.on("notifications_read", async ({ channelId, userId }) => {
-    const user = getUser();
-    if (userId !== user?._id) return;
+socket.on("notifications_read", ({ channelId, userId }) => {
+  const user = getUser();
+  if (userId !== user?._id) return;
 
-    await api.post(`/notifications/read/channel/${channelId}`);
+  const s = store();
 
+  s.setNotifications(
+    s.notifications.map(n =>
+      n.channel === channelId ? { ...n, read: true } : n
+    )
+  );
 
-    const res = await api.get("/notifications");
-    store().setNotifications(res.data.notifications);
+  s.setChannels((chs) =>
+    chs.map((c) =>
+      c._id === channelId ? { ...c, unreadCount: 0 } : c
+    )
+  );
+});
 
-    store().setChannels((chs) =>
-      chs.map((c) =>
-        c._id === channelId ? { ...c, unreadCount: 0 } : c
-      )
-    );
-  });
 
   /* ================= CLEANUP ================= */
   return () => {

@@ -179,7 +179,10 @@ function MemberRow({ user, unread, onSelect, onViewProfile, active }) {
     setBlockedUsers 
   } = useChatStore();
   const presence = onlineUsers?.[user?._id];
-const isOnline = presence?.status === "online";
+const status = presence?.status || user.status || "offline";
+
+const isOnline = status === "online";
+
 
   const isPinned = pinnedDMs.includes(user._id);
   const isBlocked = blockedUsers.includes(user._id);
@@ -253,7 +256,7 @@ const handleUnblock = async (id) => {
                 <span className="text-[10px] text-blue-600 font-semibold">New message</span>
               ) : (
                 <span className="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity capitalize">
-                  {presence?.status || "offline"}
+                  {status}
                 </span>
               )}
             </div>

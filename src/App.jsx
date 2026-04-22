@@ -16,11 +16,13 @@ import UserSetup from "./pages/UserSetup";
 import MainLayout from "./components/layout/MainLayout";
 import JoinWorkspace from "./pages/JoinWorkspace";
 import WorkspaceInfo from "./pages/WorkspaceInfo"
+import api from "./api/axios";
 
 function App() {
   const user = useAuthStore((s) => s.user);
   const hydrateUser = useAuthStore((s) => s.hydrateUser);
   const workspace = useChatStore((s) => s.workspace);
+ 
 
   useEffect(() => {
     hydrateUser();
@@ -32,7 +34,7 @@ function App() {
     socket.emit("user_online", user._id);
     socket.emit("join_user", user._id);
 
-    initSocketListeners(); // 🔥 ALL SOCKET LOGIC HERE
+    initSocketListeners(); 
   }, [user?._id]);
 
   useEffect(() => {
@@ -44,6 +46,54 @@ function App() {
       socket.emit("leave_workspace", workspace._id);
     };
   }, [workspace?._id]);
+
+    useEffect(() => {
+  if (!user?._id) return;
+
+  const interval = setInterval(() => {
+    socket.emit("heartbeat", user._id);
+  }, 30000); // every 30 sec
+
+  return () => clearInterval(interval);
+}, [user?._id]);
+
+useEffect(() => {
+  if (!user?._id) return;
+
+  const initNotifications = async () => {
+    try {
+      const res = await api.get("/notifications");
+
+      const notifications = res.data.notifications || [];
+
+      const store = useChatStore.getState();
+
+      //  ONLY set notifications
+      store.setNotifications(notifications);
+
+      //  DO NOT calculate unread counts here
+      // unread counts are handled by sockets (receive_message / receive_dm)
+
+    } catch (err) {
+      console.error("INIT NOTIFICATIONS ERROR", err);
+    }
+  };
+
+  initNotifications();
+}, [user?._id]);
+
+
+const channels = useChatStore((s) => s.channels);
+
+useEffect(() => {
+  channels.forEach((ch) => {
+    socket.emit("join_channel", ch._id);
+  });
+}, [channels]);
+
+
+
+
 
   return (
     <BrowserRouter>

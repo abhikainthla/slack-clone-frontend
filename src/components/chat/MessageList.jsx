@@ -99,63 +99,17 @@ export default function MessageList({ messageRefs, loading }){
     return () => socket.off("message_read_update", handleRead);
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
   if (!activeChannel?._id || messages.length === 0) return;
 
   const lastMessage = messages[messages.length - 1];
+  if (!lastMessage?._id) return;
 
-  const timer = setTimeout(() => {
-    useChatStore.getState().setChannels((channels) =>
-      channels.map((ch) =>
-        ch._id === activeChannel._id
-          ? { ...ch, unreadCount: 0 }
-          : ch
-      )
-    );
-
-
-    if (lastMessage?._id) {
+  // mark read ONCE when messages load/change
   markChannelRead(activeChannel._id, lastMessage._id);
- }
 
- 
-  }, 500);
+}, [activeChannel?._id, messages.length]);
 
-  return () => clearTimeout(timer);
-}, [activeChannel?._id]);
-
-
-
-
-useEffect(() => {
-  const el = messagesEndRef.current;
-  if (!el) return;
-
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      if (entry.isIntersecting) {
-        if (activeChannel?._id && messages.length > 0) {
-          const lastMessage = messages[messages.length - 1];
-
-          // ✅ optimistic update
-          useChatStore.getState().setChannels((channels) =>
-            channels.map((ch) =>
-              ch._id === activeChannel._id
-                ? { ...ch, unreadCount: 0 }
-                : ch
-            )
-          );
-
-          markChannelRead(activeChannel._id, lastMessage._id);
-        }
-      }
-    },
-    { threshold: 1 }
-  );
-
-  observer.observe(el);
-  return () => observer.disconnect();
-}, [messages, activeChannel]);
 
 
 
