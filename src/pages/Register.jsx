@@ -26,7 +26,7 @@ export default function Register() {
 
     try {
       await registerUser(form);
-      navigate("/login");
+      navigate("/check-email", { state: { email: form.email } });
     } catch (err) {
       setError(err?.response?.data?.message || "Registration failed. Please try again.");
     } finally {

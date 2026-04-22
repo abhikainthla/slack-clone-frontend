@@ -17,6 +17,8 @@ import MainLayout from "./components/layout/MainLayout";
 import JoinWorkspace from "./pages/JoinWorkspace";
 import WorkspaceInfo from "./pages/WorkspaceInfo"
 import api from "./api/axios";
+import LandingPage from "./pages/LandingPage";
+import CheckEmail from "./pages/CheckEmail";
 
 function App() {
   const user = useAuthStore((s) => s.user);
@@ -99,9 +101,10 @@ useEffect(() => {
     <BrowserRouter>
     <Toaster position="bottom-center" />
       <Routes>
-
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />}/>
+        <Route path="/check-email" element={<CheckEmail />} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/usersetup" element={<UserSetup />} />
         <Route path="/settings" element={<Settings />} />
@@ -115,6 +118,7 @@ useEffect(() => {
 
         {/* Main App Layout */}
         <Route path="/workspace/:id" element={<MainLayout />} />
+
 
       </Routes>
     </BrowserRouter>

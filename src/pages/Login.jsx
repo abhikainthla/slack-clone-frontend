@@ -31,7 +31,14 @@ export default function Login() {
         navigate("/workspace");
       }
     } catch (err) {
-      setError(err?.response?.data?.message || "Invalid email or password");
+      const msg = err?.response?.data?.message;
+
+      if (msg?.includes("verify your email")) {
+        navigate("/check-email", { state: { email: form.email } });
+      } else {
+        setError(msg || "Invalid email or password");
+      }
+
     } finally {
       setLoading(false);
     }

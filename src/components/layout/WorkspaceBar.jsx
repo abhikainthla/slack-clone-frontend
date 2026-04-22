@@ -63,7 +63,7 @@ export default function WorkspaceBar() {
   };
 
   return (
-    <div className="w-16 bg-gray-200 flex flex-col items-center py-4 justify-between h-screen relative z-[100] border-r border-gray-300">
+    <div className="w-16 bg-[#261c4d] flex flex-col items-center py-4 justify-between h-screen relative z-[100] border-r border-gray-300">
       
       {/* TOP SECTION */}
       <div className="flex flex-col items-center space-y-4 w-full">
