@@ -15,6 +15,8 @@ const presetAvatars = [
   ,
 ];
 
+
+
 export default function UserSetup() {
   const navigate = useNavigate();
   const { user, setAuth } = useAuthStore();
@@ -23,6 +25,8 @@ export default function UserSetup() {
   const [bio, setBio] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState("");
   const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+
 
   useEffect(() => {
   if (user?.isOnboarded) {
@@ -30,21 +34,38 @@ export default function UserSetup() {
   }
 }, [user]);
 
-  const handleUpload = async () => {
-    if (!file) return;
+const handleUpload = async () => {
+  if (!file) return null;
 
-    const formData = new FormData();
-    formData.append("avatar", file);
+  const formData = new FormData();
+  formData.append("avatar", file);
 
-    const res = await api.post("/users/avatar/upload", formData);
-    return res.data.avatar;
-  };
+  const res = await api.post("/users/avatar/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 
-  const handleSubmit = async () => {
+  return res.data.avatar;
+};
+
+const handleSubmit = async () => {
+  try {
+    if (!username) {
+      alert("Username is required");
+      return;
+    }
+
     let avatarUrl = selectedAvatar;
 
     if (file) {
       avatarUrl = await handleUpload();
+    }
+
+    if (!file && selectedAvatar) {
+      await api.post("/users/avatar/select", {
+        avatarUrl: selectedAvatar,
+      });
     }
 
     const res = await api.post("/users/onboarding", {
@@ -54,17 +75,46 @@ export default function UserSetup() {
 
     setAuth(res.data, localStorage.getItem("token"));
     navigate("/workspace");
-  };
 
-  const handleSkip = async () => {
-  await api.post("/users/onboarding", {
-    username: user.name,
-    bio: "",
-    avatar: user.avatar || "",
-  });
-
-  navigate("/workspace");
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+  }
 };
+
+
+
+const handleSkip = async () => {
+  try {
+    const generated = user.name
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+
+    const res = await api.post("/users/onboarding", {
+      username: generated,
+      bio: "",
+    });
+
+    setAuth(res.data, localStorage.getItem("token"));
+    navigate("/workspace");
+
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+
+useEffect(() => {
+  if (user?.name) {
+    const generated = user.name
+      .toLowerCase()
+      .replace(/\s+/g, "_")   // spaces → underscore
+      .replace(/[^a-z0-9_]/g, ""); // remove weird chars
+
+    setUsername(generated);
+  }
+}, [user]);
+
 
 
   return (
@@ -74,7 +124,27 @@ export default function UserSetup() {
         <h2 className="text-xl font-semibold mb-4">Set up your profile</h2>
 
         {/* Avatar Upload */}
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+        <input
+          type="file"
+          onChange={(e) => {
+            const file = e.target.files[0];
+            setFile(file);
+
+            if (file) {
+              setPreview(URL.createObjectURL(file));
+            }
+          }}
+        />
+
+        {/* Preview */}
+        {preview && (
+          <img
+            src={preview}
+            className="w-20 h-20 rounded-full mt-3 object-cover"
+          />
+        )}
+
+
 
         {/* Preset avatars */}
         <div className="flex gap-2 mt-3">
@@ -117,6 +187,7 @@ export default function UserSetup() {
         </button>
 
       </div>
+
     </div>
   );
 }
