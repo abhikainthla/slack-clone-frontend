@@ -24,7 +24,8 @@ const useChatStore = create((set, get) => ({
   notifications: [],
   notificationCount: 0,
   unreadDMs: JSON.parse(localStorage.getItem("unreadDMs") || "{}"),
-
+  threadUnread: JSON.parse(localStorage.getItem("threadUnread") || "{}"),
+  threadRepliesMap: {},
 
 
 dmUser: null,
@@ -124,9 +125,61 @@ closeThread: () =>
     };
   }),
 
+  addReplyToMap: (parentId, reply) =>
+  set((state) => {
+    const existing = state.threadRepliesMap[parentId] || [];
+
+    if (existing.some((r) => r._id === reply._id)) return state;
+
+    return {
+      threadRepliesMap: {
+        ...state.threadRepliesMap,
+        [parentId]: [...existing, reply],
+      },
+    };
+  }),
+
+
+
 
 setThreadReplies: (replies) =>
   set({ threadReplies: replies }),
+
+
+  incrementThreadUnread: (messageId) =>
+  set((state) => {
+    const updated = {
+      ...state.threadUnread,
+      [messageId]: (state.threadUnread[messageId] || 0) + 1,
+    };
+
+    localStorage.setItem("threadUnread", JSON.stringify(updated));
+
+    return { threadUnread: updated };
+  }),
+
+
+clearThreadUnread: (messageId) =>
+  set((state) => {
+    const updated = {
+      ...state.threadUnread,
+      [messageId]: 0,
+    };
+
+    localStorage.setItem("threadUnread", JSON.stringify(updated));
+
+    return { threadUnread: updated };
+  }),
+
+  setThreadUnread: (messageId, count) =>
+  set((state) => ({
+    threadUnread: {
+      ...state.threadUnread,
+      [messageId]: count,
+    },
+  })),
+
+
 
 
 togglePinDM: (userId) =>
@@ -320,18 +373,21 @@ setMessages: (messages) =>
   
 addMessage: (message) =>
   set((state) => {
+    if (message.parentMessage) return state; 
+
     const exists = state.messages.some(
       (m) =>
         m._id === message._id ||
         (message.clientId && m.clientId === message.clientId)
     );
 
-    if (exists) return state; // ✅ prevent duplicate
+    if (exists) return state;
 
     return {
       messages: [...state.messages, message],
     };
   }),
+
 
 
 

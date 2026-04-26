@@ -38,6 +38,8 @@ export const initSocketListeners = () => {
   });
 
 socket.on("receive_message", (msg) => {
+  if (msg.parentMessage) return;
+
   const s = store();
   const active = s.activeChannel;
 
@@ -62,16 +64,18 @@ socket.on("receive_message", (msg) => {
       };
     });
 
-    // ✅ persist
+    //  ALWAYS persist
     const map = {};
     updated.forEach(c => {
       map[c._id] = c.unreadCount || 0;
     });
+
     localStorage.setItem("channelUnread", JSON.stringify(map));
 
     return updated;
   });
 
+  // only push message if user is inside channel
   if (active?._id === msg.channel) {
     s.addMessage(msg);
     markChannelRead(msg.channel, msg._id);
@@ -80,6 +84,15 @@ socket.on("receive_message", (msg) => {
 
 
 
+
+
+socket.on("receive_reply", (reply) => {
+  const s = store();
+
+  s.addThreadReply(reply);
+
+  s.incrementThreadUnread(reply.parentMessage);
+});
 
 
 
@@ -231,6 +244,8 @@ socket.on("receive_message", (msg) => {
 
   /* ================= DM ================= */
 socket.on("receive_dm", (message) => {
+  if (message.parentMessage) return;
+
   const s = store();
   const { dmUser, isDM } = s;
 
@@ -239,7 +254,9 @@ socket.on("receive_dm", (message) => {
       ? message.sender._id
       : message.sender;
 
-  //  IF CURRENT CHAT OPEN → ADD MESSAGE + MARK READ
+  const currentUserId = getUser()?._id;
+
+  // if currently chatting with sender → no unread
   if (isDM && dmUser?._id === senderId) {
     s.addMessage(message);
 
@@ -250,17 +267,27 @@ socket.on("receive_dm", (message) => {
     return;
   }
 
-  //  otherwise unread
+  // identify other user
   const otherUserId =
-  senderId === getUser()?._id
-    ? message.conversation?.members?.find(id => id !== senderId)
-    : senderId;
+    senderId === currentUserId
+      ? message.conversation?.members?.find(id => id !== senderId)
+      : senderId;
 
-if (otherUserId) {
+  if (!otherUserId) return;
+
+  //  increment unread
   s.incrementUnread(otherUserId);
-}
 
+  //  persist immediately
+  const updated = {
+    ...s.unreadDMs,
+    [otherUserId]: (s.unreadDMs[otherUserId] || 0) + 1,
+  };
+
+  localStorage.setItem("unreadDMs", JSON.stringify(updated));
 });
+
+
 
 
 socket.on("dm_read_update", ({ userId }) => {

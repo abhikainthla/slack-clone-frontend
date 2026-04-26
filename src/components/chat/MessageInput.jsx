@@ -65,7 +65,8 @@ const handleChange = (value) => {
   setText(value);
 
   /* ================= MENTION LOGIC ================= */
-  const mentionMatch = value.match(/(?:^|\s)@([a-zA-Z0-9._-]*)$/);
+  const mentionMatch = value.match(/(?:^|\s)@([\w.-]*)$/);
+
 
   if (mentionMatch) {
     setShowMention(true);
@@ -100,7 +101,10 @@ const handleChange = (value) => {
 
 /* ================= SELECT MENTION ================= */
 const selectMention = (user) => {
-  const newText = text.replace(/(^|\s)@([a-zA-Z0-9._-]*)$/, `$1@${user.name} `);
+  const newText = text.replace(
+    /(^|\s)@([a-zA-Z0-9._-]*)$/,
+    `$1@[${user.name}](${user._id}) `
+  );
 
   setText(newText);
 
@@ -112,12 +116,14 @@ const selectMention = (user) => {
   setShowMention(false);
 };
 
+
 /* ================= FILTER USERS ================= */
 const filteredUsers = users.filter(
   (u) =>
     u._id !== user._id &&
-    (u.name || "").toLowerCase().includes(mentionQuery)
-);
+    u.name?.toLowerCase().includes(mentionQuery)
+).slice(0, 6); 
+
 
 
 
@@ -240,7 +246,10 @@ const handleSend = async () => {
       pending: true,
     };
 
-    addMessage(optimisticMessage); // ✅ INSTANT RENDER
+    if (!parentMessageId) {
+      addMessage(optimisticMessage);
+    }
+
 
     /* ================= API CALL ================= */
     const res = isThread && onSendOverride

@@ -16,12 +16,18 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 
 
 
-export default function MessageItem({ message }) {
+export default function MessageItem({ message, isThreadView = false }) {
 
   const [showPicker, setShowPicker] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
   const openThread = useChatStore((s) => s.openThread);
+  const threadUnread = useChatStore((s) => s.threadUnread);
+  const unreadCount = threadUnread[message._id] || 0;
+const threadReplies = useChatStore((s) => s.threadRepliesMap || {});
 
+const liveReplies = threadReplies[message._id] || [];
+
+const replyCount = message.replyCount || 0;
 
   const user = useAuthStore((s) => s.user);
   const updateMessage = useChatStore((s) => s.updateMessage);
@@ -55,7 +61,8 @@ const isMine = senderId?.toString() === user?._id?.toString();
 
     useEffect(() => {
       Prism.highlightAll();
-    }, [message]);
+    }, [message.content]);
+
   /* ================= GROUP REACTIONS ================= */
   const groupedReactions = Object.values(
     (message.reactions || []).reduce((acc, r) => {
@@ -105,23 +112,45 @@ const handlePin = async () => {
 const renderContent = (text) => {
   if (!text) return null;
 
-  const parts = text.split(/(@\w+)/g); // split by mentions
+  // Match @[name](id)
+  const regex = /@\[(.*?)\]\((.*?)\)/g;
 
-  return parts.map((part, i) => {
-    if (part.startsWith("@")) {
-      return (
-        <span
-          key={i}
-          className="bg-blue-100 text-blue-600 px-1 py-0.5 rounded font-medium"
-        >
-          {part}
-        </span>
-      );
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const [full, name, id] = match;
+
+    // push text before mention
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
     }
 
-    return <span key={i}>{part}</span>;
-  });
+    // push mention
+    parts.push(
+      <span
+        key={id + match.index}
+        className="bg-blue-100 text-blue-600 px-1 py-0.5 rounded font-medium cursor-pointer hover:bg-blue-200"
+        onClick={() => console.log("Go to user", id)} // 🔥 you can open profile here
+      >
+        @{name}
+      </span>
+    );
+
+    lastIndex = regex.lastIndex;
+  }
+
+  // remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.map((p, i) =>
+    typeof p === "string" ? <span key={i}>{p}</span> : p
+  );
 };
+
 
 
 
@@ -138,6 +167,9 @@ const handleBookmark = async () => {
     toggleBookmarkLocal(message._id, user?._id);
   }
 };
+
+
+
 
 
 
@@ -372,13 +404,52 @@ const handleBookmark = async () => {
             })}
           </div>
 
-          <button
-            onClick={() => openThread(message)}
-            className="text-xs text-blue-500 mt-1 hover:underline"
-          >
-            View replies
-          </button>
+{/* Reply Summary Section */}
+{!isThreadView && (
+  <div className="flex items-center gap-3 mt-1">
+    <button
+      onClick={() => {
+        openThread(message);
+        useChatStore.getState().clearThreadUnread(message._id);
+      }}
+      className="text-xs text-blue-500 hover:underline flex items-center gap-2"
+    >
+      {replyCount > 0
+  ? !isMine && unreadCount > 0
+    ? `View replies (${unreadCount} new)`
+    : "View replies"
+  : "Reply in thread"}
 
+
+      {/* 🔴 unread dot */}
+      {!isMine && unreadCount > 0 && (
+          <span className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse" />
+        )}
+
+    </button>
+
+    {/* ✅ TOTAL + UNREAD */}
+    {replyCount > 0 && (
+      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+        {replyCount}
+
+        {/* 🔥 unread number */}
+        {unreadCount > 0 && (
+          <span className="text-purple-600 font-semibold">
+            +{unreadCount}
+          </span>
+        )}
+
+        {replyCount === 1 ? "reply" : "replies"}
+      </span>
+    )}
+  </div>
+)}
+
+
+        <span className="text-xs text-gray-400">
+          {replyCount} replies
+        </span>
 
       </div>
 

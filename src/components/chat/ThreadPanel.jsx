@@ -32,6 +32,16 @@ export default function ThreadPanel() {
         );
 
         setThreadReplies(unique);
+
+        useChatStore.getState().setThreadRepliesMap(threadMessage._id, unique);
+
+        setThreadRepliesMap: (parentId, replies) =>
+          set((state) => ({
+            threadRepliesMap: {
+              ...state.threadRepliesMap,
+              [parentId]: replies,
+            },
+          }))
       } catch (err) {
         console.error("❌ Failed to fetch replies:", err);
       }
@@ -53,9 +63,27 @@ export default function ThreadPanel() {
     socket.on("receive_reply", handler);
 
     return () => socket.off("receive_reply", handler);
-  }, [threadMessage]);
+  }, [threadMessage?._id]);
+
+
+useEffect(() => {
+  if (!threadMessage?._id) return;
+
+  const markRead = async () => {
+    try {
+      await api.put(`/messages/read-message/${threadMessage._id}`);
+      useChatStore.getState().clearThreadUnread(threadMessage._id);
+    } catch (err) {
+      console.error("Thread read error:", err);
+    }
+  };
+
+  markRead();
+}, [threadMessage?._id]);
+
 
   if (!threadMessage) return null;
+
 
   return (
     <div className="w-[380px] pr-5 border-l bg-white flex flex-col h-full">
@@ -84,14 +112,14 @@ export default function ThreadPanel() {
 
 
       {/* PARENT */}
-      <div className="border-b">
-        <MessageItem message={threadMessage} />
+      <div className="border-b bg-gray-50">
+        <MessageItem message={threadMessage} isThreadView={true} />
       </div>
 
       {/* REPLIES */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {threadReplies.map((r) => (
-          <MessageItem key={r._id} message={r} />
+          <MessageItem key={r._id} message={r} isThreadView={true} />
         ))}
       </div>
 

@@ -20,6 +20,8 @@ import api from "./api/axios";
 import LandingPage from "./pages/LandingPage";
 import CheckEmail from "./pages/CheckEmail";
 import VerifyEmail from "./pages/VerifyEmail";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   const user = useAuthStore((s) => s.user);
@@ -39,6 +41,7 @@ function App() {
 
     initSocketListeners(); 
   }, [user?._id]);
+  
 
   useEffect(() => {
     if (!workspace?._id) return;
@@ -49,6 +52,23 @@ function App() {
       socket.emit("leave_workspace", workspace._id);
     };
   }, [workspace?._id]);
+
+  useEffect(() => {
+  const storedChannels = JSON.parse(localStorage.getItem("channelUnread") || "{}");
+  const storedDMs = JSON.parse(localStorage.getItem("unreadDMs") || "{}");
+
+  useChatStore.setState({
+    unreadDMs: storedDMs,
+  });
+
+  useChatStore.setState((state) => ({
+    channels: state.channels.map((ch) => ({
+      ...ch,
+      unreadCount: storedChannels[ch._id] || 0,
+    })),
+  }));
+}, []);
+
 
     useEffect(() => {
   if (!user?._id) return;
@@ -107,6 +127,8 @@ useEffect(() => {
         <Route path="/register" element={<Register />}/>
         <Route path="/check-email" element={<CheckEmail />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/usersetup" element={<UserSetup />} />
         <Route path="/settings" element={<Settings />} />

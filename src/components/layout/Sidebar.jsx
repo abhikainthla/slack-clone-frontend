@@ -324,7 +324,7 @@ const handleMarkAsRead = async () => {
       </div>
 
       <div className="flex-1 overflow-y-auto mt-2">
-        <div className="relative group">
+        <div className="relative group mb-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
           <input
             type="text"

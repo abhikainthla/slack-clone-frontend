@@ -11,9 +11,103 @@ import api from "../../api/axios";
 
 export default function MessageList({ messageRefs, loading }){
   const { activeChannel, messages, setMessages, dmUser, isDM } = useChatStore();
+  const threadMessage = useChatStore((s) => s.threadMessage);
   const messagesEndRef = useRef(null);
   const [typingUsers, setTypingUsers] = useState([]);
-    const user = useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const containerRef = useRef();
+  const prevHeightRef = useRef(0);
+  const stateRef = useRef();
+
+  useEffect(() => {
+    stateRef.current = {
+      loadingMore,
+      hasMore,
+      messages,
+      activeChannel,
+      dmUser,
+      isDM,
+    };
+  });
+
+
+
+
+
+
+const debouncedLoadMore = useRef();
+
+useEffect(() => {
+  let timer;
+
+  const loadMore = async () => {
+    const state = stateRef.current;
+
+    if (!state || state.loadingMore || !state.hasMore || state.messages.length === 0) return;
+
+    try {
+      prevHeightRef.current = containerRef.current?.scrollHeight || 0;
+      setLoadingMore(true);
+
+      const oldest = state.messages[0];
+
+      let res;
+
+      if (state.isDM && state.dmUser?._id) {
+        res = await getMessages({
+          userId: state.dmUser._id,
+          before: oldest?._id,
+        });
+      } else if (state.activeChannel?._id) {
+        res = await getMessages({
+          channelId: state.activeChannel._id,
+          before: oldest?._id,
+        });
+      }
+
+      const newMsgs = res?.data?.messages || res?.data || [];
+
+      if (!newMsgs.length) {
+        setHasMore(false);
+        return;
+      }
+
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m._id));
+        const filtered = newMsgs.filter((m) => !existingIds.has(m._id));
+        return [...filtered, ...prev];
+      });
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  debouncedLoadMore.current = () => {
+    clearTimeout(timer);
+    timer = setTimeout(loadMore, 300);
+  };
+
+  return () => clearTimeout(timer);
+}, []); 
+
+
+useEffect(() => {
+  if (!containerRef.current) return;
+
+  const newHeight = containerRef.current.scrollHeight;
+  const diff = newHeight - prevHeightRef.current;
+
+  if (diff > 0) {
+    containerRef.current.scrollTop += diff;
+  }
+}, [messages]);
+
+
     
 
   /* ================= JOIN ROOMS ================= */
@@ -37,7 +131,7 @@ export default function MessageList({ messageRefs, loading }){
   useEffect(() => {
     const handler = (newMessage) => {
       const { activeChannel, dmUser, isDM } = useChatStore.getState();
-
+      if (newMessage.parentMessage) return;
       //  CHANNEL FILTER
       if (activeChannel?._id && newMessage.channel !== activeChannel._id) {
         return;
@@ -58,10 +152,9 @@ export default function MessageList({ messageRefs, loading }){
       }
 
       setMessages((prev) => {
-          const exists = prev.some((m) => m._id === newMessage._id);
-              if (exists) return prev;
-              return [...prev, newMessage];
-       });
+        if (prev.some((m) => m._id === newMessage._id)) return prev;
+        return [...prev, newMessage];
+      });
     };
 
     socket.on("receive_message", handler);
@@ -154,6 +247,12 @@ export default function MessageList({ messageRefs, loading }){
           await api.post(`/messages/read/dm/${dmUser._id}`);
           socket.emit("dm_read", { userId: dmUser._id });
 
+          const fetchThreadUnread = async (messageId) => {
+            const res = await api.get(`/messages/thread/unread/${messageId}`);
+            useChatStore.getState().setThreadUnread(messageId, res.data.count);
+          };
+
+
 
         } else if (activeChannel?._id) {
           res = await getMessages({ channelId: activeChannel._id });
@@ -165,7 +264,9 @@ export default function MessageList({ messageRefs, loading }){
           ? res.data
           : res.data.messages || [];
 
-        setMessages(data);
+        const rootMessages = data.filter((m) => !m.parentMessage);
+        setMessages(rootMessages);
+
       } catch (err) {
         console.error("Failed to fetch messages:", err);
       }
@@ -197,6 +298,14 @@ export default function MessageList({ messageRefs, loading }){
     socket.off("pin_update", handlePinUpdate);
   };
 }, []);
+
+const handleScroll = (e) => {
+  if (e.target.scrollTop <= 10) {
+    debouncedLoadMore.current?.();
+  }
+};
+
+
 
 
   /* ================= MARK AS READ ================= */
@@ -265,6 +374,47 @@ export default function MessageList({ messageRefs, loading }){
   return () => socket.off("channel_read_update", handleChannelRead);
 }, []);
 
+useEffect(() => {
+  const handleReply = (reply) => {
+    if (!reply.parentMessage) return;
+
+    const state = useChatStore.getState();
+
+    //  store reply globally
+    state.addReplyToMap(reply.parentMessage, reply);
+
+    //  increment unread ONLY if thread is closed
+    if (state.threadMessage?._id !== reply.parentMessage) {
+      state.incrementThreadUnread(reply.parentMessage);
+    }
+
+    //  update parent message reply count (optimistic)
+    const parentMsg = state.messages.find(
+      (m) => m._id === reply.parentMessage
+    );
+
+
+  };
+
+  socket.on("receive_reply", handleReply);
+
+  return () => socket.off("receive_reply", handleReply);
+}, []);
+
+useEffect(() => {
+  const handleReplyCount = ({ messageId, replyCount }) => {
+    useChatStore.getState().updateMessage({
+      _id: messageId,
+      replyCount,
+    });
+  };
+
+  socket.on("reply_count_update", handleReplyCount);
+
+  return () => socket.off("reply_count_update", handleReplyCount);
+}, []);
+
+
 
   /* ================= AUTO SCROLL ================= */
   useEffect(() => {
@@ -288,27 +438,47 @@ export default function MessageList({ messageRefs, loading }){
 
   /* ================= UI ================= */
   return (
-    <div className="flex flex-col flex-1 min-w-0 bg-gray-50 p-4 pb-28 space-y-3">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex flex-col flex-1 min-w-0 bg-gray-50 p-4 pb-28 space-y-3 overflow-y-auto"
+      >
+        {loadingMore && (
+          <div className="text-center text-xs text-gray-400">
+            Loading more messages...
+          </div>
+        )}
 
-      {messages?.length > 0 ? (
-        messages.map((msg) =>
-          msg?._id ? (
-            <div
-              key={`${msg._id}-${msg.createdAt}`}
-              ref={(el) => (messageRefs.current[msg._id] = el)}
-            >
-              <MessageItem message={msg} />
+        <div className="relative">
+          {messages?.length > 0 ? (
+            messages.map((msg) => {
+              const isThreadActive = !!threadMessage;
+              const isFocused = threadMessage?._id === msg._id;
+
+              return msg?._id ? (
+                <div
+                  key={`${msg._id}-${msg.createdAt}`}
+                  ref={(el) => (messageRefs.current[msg._id] = el)}
+                  className={`transition-all duration-200 ${
+                    isThreadActive && !isFocused
+                      ? "opacity-40 blur-[2px] scale-[0.98]"
+                      : "opacity-100"
+                  }`}
+                >
+                  <MessageItem message={msg} />
+                </div>
+              ) : null;
+            })
+          ) : (
+            <div className="flex items-center justify-center h-full w-full">
+              <p className="flex items-center gap-2 text-gray-400 text-sm">
+                <MessageCircleWarning size={18} />
+                Choose a channel or DM
+              </p>
             </div>
-          ) : null
-        )
-      ) : (
-        <div className="flex items-center justify-center h-full w-full">
-          <p className="flex items-center gap-2 text-gray-400 text-sm">
-            <MessageCircleWarning size={18} />
-            Choose a channel or DM
-          </p>
+          )}
         </div>
-      )}
+
 
       {/* Typing indicator */}
       {typingUsers.length > 0 && (
