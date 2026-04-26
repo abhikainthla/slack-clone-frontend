@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000", {
-  autoConnect: true,
+const socket = io("https://syncube-backend.onrender.com", {
+  transports: ["websocket"],
 });
 
 export default socket;
