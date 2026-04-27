@@ -4,6 +4,9 @@ A modern, real-time chat application frontend inspired by Slack. Built with Reac
 
 ---
 
+## 🚀Live 
+[Hosted Link](https://slack-clone-frontend-psi.vercel.app/)
+
 ## 🛠️ Tech Stack
 
 - React.js
