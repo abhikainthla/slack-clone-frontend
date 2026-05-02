@@ -23,26 +23,25 @@ const role =
 
 
   return (
-    <>
-      <header className="border-b h-16 flex items-center px-6 bg-white shrink-0">
-
-        {/* MOBILE MENU BUTTON */}
+        <>
+      <header className="border-b bg-white shrink-0 px-3 sm:px-4 md:px-6 py-2 flex items-center">
+        
+        {/* MOBILE MENU */}
         <button
           onClick={onMenuClick}
-          className="lg:hidden mr-3 p-2 hover:bg-gray-100 rounded-md"
+          className="lg:hidden mr-2 p-2 hover:bg-gray-100 rounded-md"
         >
           <Menu size={20} />
         </button>
 
         {(activeChannel?._id || isDM) ? (
-          <div className="flex items-center justify-between w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
 
             {/* ================= LEFT ================= */}
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-
-                {/* ✅SWITCH BETWEEN DM & CHANNEL */}
-                <h2 className="font-bold text-lg text-gray-800 tracking-tight">
+            <div className="flex flex-col min-w-0">
+              
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="font-semibold text-sm sm:text-base md:text-lg text-gray-800 truncate">
                   {isDM
                     ? dmUser?.name
                     : `# ${activeChannel?.name}`}
@@ -51,7 +50,7 @@ const role =
                 {!isDM && <RoleBadge role={role} />}
               </div>
 
-              <p className="text-xs text-gray-500 font-medium">
+              <p className="text-[11px] sm:text-xs text-gray-500 truncate">
                 {isDM
                   ? "Direct message conversation"
                   : "Channel discussion and updates"}
@@ -59,20 +58,20 @@ const role =
             </div>
 
             {/* ================= RIGHT ================= */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
 
-              {/* 📌 PINNED (only for channels) */}
+              {/* PINNED */}
               <PinnedDialog onJump={onJump} />
 
-              {/* 🔖 BOOKMARK */}
+              {/* BOOKMARK */}
               <BookmarkDialog onJump={onJump} />
 
-              {/* ⚙️ SETTINGS (only admin + channel) */}
+              {/* SETTINGS */}
               {!isDM && role === "admin" && (
                 <button
                   onClick={() => setOpen(true)}
                   title="Channel Settings"
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition shrink-0"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
@@ -81,14 +80,14 @@ const role =
           </div>
         ) : (
           <div className="flex items-center h-full">
-            <p className="text-gray-400 italic text-sm">
+            <p className="text-gray-400 italic text-xs sm:text-sm">
               Select a channel or user to start chatting
             </p>
           </div>
         )}
       </header>
 
-      {/* ✅ MODAL */}
+      {/* MODAL */}
       {!isDM && (
         <ChannelSettingsModal
           open={open}

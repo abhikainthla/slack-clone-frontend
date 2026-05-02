@@ -4,14 +4,13 @@ import { getWorkspaces, createWorkspace } from "../../services/workspaceService"
 import { useNavigate, useParams } from "react-router-dom";
 import useChatStore from "../../store/chatStore";
 import useAuthStore from "../../store/authStore";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut, Plus, Settings } from "lucide-react";
 
-export default function WorkspaceBar() {
+export default function WorkspaceBar({ isMobile = false }) {
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // ✅ FORM STATE
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [color, setColor] = useState("bg-purple-500");
@@ -42,15 +41,12 @@ export default function WorkspaceBar() {
   const handleCreate = async () => {
     if (!name.trim()) return;
     setLoading(true);
-
     try {
-      // ✅ Pass name, desc, and color to the service
       const res = await createWorkspace({ 
         name: name.trim(), 
         description: desc.trim(), 
         color: color 
       });
-
       setWorkspaces((prev) => [...prev, res.data]);
       setName("");
       setDesc("");
@@ -63,133 +59,124 @@ export default function WorkspaceBar() {
   };
 
   return (
-    <div className="hidden lg:flex w-16 bg-[#261c4d] flex flex-col items-center py-4 justify-between h-screen relative z-[100] border-r border-gray-300">
-      
-      {/* TOP SECTION */}
-      <div className="flex flex-col items-center space-y-4 w-full">
+    <div
+      className={`
+        ${isMobile 
+          ? "flex w-full h-14 px-2 border-b overflow-hidden" 
+          : "hidden lg:flex w-[68px] h-screen flex-col border-r py-4"}
+        bg-[#1e1540] items-center justify-between relative z-[100] border-white/10
+      `}
+    >
+
+      {/* SECTION: WORKSPACES */}
+      <div
+        className={`
+          ${isMobile 
+            ? "flex items-center gap-3 overflow-x-auto no-scrollbar w-full" 
+            : "flex flex-col items-center space-y-4 w-full"}
+        `}
+      >
+
+
         
-        {/* WORKSPACES LIST */}
         {workspaces.map((ws) => {
           const isActive = ws._id === activeWorkspaceId;
-          // ✅ Use the color from the database, or fallback to purple
-          const wsColor = ws.color || "bg-purple-600"; 
+          const wsColor = ws.color || "bg-purple-600";
 
           return (
             <div
               key={ws._id}
-              title={ws.name} // Simple tooltip
+              title={ws.name}
               onClick={() => {
                 setWorkspace(ws);
                 navigate(`/workspace/${ws._id}`);
               }}
-              className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold cursor-pointer transition-all duration-200 shadow-sm ${
-                isActive
-                  ? `${wsColor} text-white ring-2 ring-offset-2 ring-gray-400 scale-110`
-                  : "bg-gray-300 text-gray-600 hover:bg-gray-400 hover:rounded-xl"
-              }`}
+              className={`
+                shrink-0 min-w-[40px] h-10 rounded-xl flex items-center justify-center font-bold
+                cursor-pointer transition-all duration-200
+                ${isActive
+                  ? `${wsColor} text-white ring-2 ring-white ring-offset-2 ring-offset-[#1e1540]`
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+                }
+              `}
+
             >
               {ws.name?.charAt(0).toUpperCase()}
             </div>
           );
         })}
 
-        {/* ➕ ADD WORKSPACE POPOVER */}
+        {/* ADD WORKSPACE */}
         <Popover.Root open={open} onOpenChange={setOpen}>
           <Popover.Trigger asChild>
-            <div className="w-10 h-10 rounded-lg bg-white border-2 border-dashed border-gray-400 flex items-center justify-center text-gray-500 cursor-pointer hover:border-purple-500 hover:text-purple-500 transition-all">
+            <button className="shrink-0 w-10 h-10 rounded-xl bg-white/5 border border-dashed border-white/30 flex items-center justify-center text-white/50 hover:border-white hover:text-white transition-all">
               <Plus size={20} />
-            </div>
+            </button>
           </Popover.Trigger>
 
           <Popover.Portal>
             <Popover.Content
-              side="right"
-              align="start"
-              sideOffset={12}
-              className="bg-white p-5 rounded-2xl shadow-2xl w-72 border border-gray-100 animate-in fade-in zoom-in duration-150"
+              side={isMobile ? "bottom" : "right"}
+              align="center"
+              sideOffset={10}
+              className="bg-white p-4 rounded-xl shadow-2xl w-[90vw] max-w-[320px] border border-gray-100 z-[110]"
             >
-              <h3 className="text-sm font-bold text-gray-700 mb-4">Create Workspace</h3>
 
-              <div className="space-y-3">
-                {/* NAME */}
+              <h3 className="text-sm font-bold text-gray-700 mb-4">New Workspace</h3>
+              <div className="space-y-4">
                 <div>
                   <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Name</label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Design Team"
-                    className="w-full border px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-all"
+                    className="w-full border px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500/20"
                   />
                 </div>
-
-                {/* DESCRIPTION */}
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Description</label>
-                  <textarea
-                    value={desc}
-                    onChange={(e) => setDesc(e.target.value)}
-                    placeholder="Optional..."
-                    className="w-full border px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-all"
-                    rows={2}
-                  />
-                </div>
-
-                {/* COLOR PICKER */}
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-2">Workspace Color</label>
+                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-2">Theme</label>
                   <div className="flex flex-wrap gap-2">
                     {colors.map((c) => (
                       <div
                         key={c}
                         onClick={() => setColor(c)}
-                        className={`w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${c} ${
-                          color === c ? "ring-2 ring-offset-2 ring-blue-500 scale-110" : ""
-                        }`}
+                        className={`w-6 h-6 rounded-full cursor-pointer border-2 ${color === c ? "border-gray-400 scale-110" : "border-transparent"} ${c}`}
                       />
                     ))}
                   </div>
                 </div>
-
                 <button
                   onClick={handleCreate}
                   disabled={loading || !name.trim()}
-                  className={`w-full py-2.5 mt-2 rounded-lg text-sm font-semibold text-white transition-all shadow-md ${
-                    loading || !name.trim()
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-purple-600 hover:bg-purple-700 active:scale-95"
-                  }`}
+                  className="w-full py-2 bg-purple-600 text-white rounded-lg text-sm font-bold disabled:opacity-50"
                 >
                   {loading ? "Creating..." : "Create Workspace"}
                 </button>
               </div>
-
-              <Popover.Arrow className="fill-white" />
             </Popover.Content>
           </Popover.Portal>
         </Popover.Root>
       </div>
 
-      {/* BOTTOM SECTION */}
-      <div className="flex flex-col items-center space-y-4">
-        {/* USER SETTINGS */}
+      {/* SECTION: USER / BOTTOM */}
+      <div className={`
+        ${isMobile 
+          ? "flex items-center ml-3 pl-3 border-l border-white/10 gap-2 shrink-0" 
+          : "flex flex-col items-center space-y-4"}
+      `}>
         <div
           onClick={() => navigate("/settings")}
-          className="w-10 h-10 rounded-full overflow-hidden border-2 border-transparent hover:border-purple-500 cursor-pointer transition-all shadow-sm"
+          className="w-8 h-8 rounded-full overflow-hidden border border-white/20 cursor-pointer hover:border-white transition-all"
         >
-          <img
-            src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=default"}
-            className="w-full h-full object-cover"
-            alt="User Avatar"
-          />
+          <img src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=default"} alt="avatar" />
         </div>
-
-        {/* LOGOUT */}
-        <button
-          onClick={() => navigate(user ? "/logout" : "/login")}
-          className="w-10 h-10 rounded-lg text-gray-500 flex items-center justify-center cursor-pointer hover:bg-red-50 hover:text-red-600 transition-all"
-        >
-          <LogOut size={20} />
-        </button>
+        {!isMobile && (
+          <button 
+            onClick={() => navigate("/logout")}
+            className="text-white/40 hover:text-red-400 transition-colors"
+          >
+            <LogOut size={20} />
+          </button>
+        )}
       </div>
     </div>
   );

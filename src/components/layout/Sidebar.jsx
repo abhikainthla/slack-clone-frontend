@@ -20,6 +20,7 @@ import {
 } from "../../services/workspaceService";
 import MembersPanel from "../chat/MembersPanel";
 import useAuthStore from "../../store/authStore";
+import WorkspaceBar from "./WorkspaceBar";
 
 export default function Sidebar() {
   const { id } = useParams();
@@ -203,7 +204,12 @@ const handleMarkAsRead = async () => {
   const colors = ["bg-purple-500", "bg-blue-500", "bg-green-500", "bg-orange-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500"];
 
   return (
-    <div className="w-64 sm:w-72 bg-white border-r p-3 sm:p-4 flex flex-col h-full">
+    <div className="w-[85vw] sm:w-72 max-w-[320px] bg-white border-r p-3 sm:p-4 flex flex-col h-full">
+      <div className="lg:hidden mb-3">
+        <WorkspaceBar isMobile />
+      </div>
+
+
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3 overflow-hidden">
