@@ -65,7 +65,7 @@ export default function PinnedDialog({ onJump }) {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
 
-        <Dialog.Content className="fixed right-4 top-16 w-[380px] max-h-[80vh] overflow-y-auto bg-white rounded-2xl shadow-2xl p-5 z-50 animate-in slide-in-from-right">
+        <Dialog.Content className="fixed right-4 top-16 w-[90vw] sm:w-[380px]max-h-[80vh] overflow-y-auto bg-white rounded-2xl shadow-2xl p-5 z-50 animate-in slide-in-from-right">
 
           {/* ✅ REQUIRED TITLE (fix accessibility error) */}
           <Dialog.Title className="font-semibold text-lg mb-4">

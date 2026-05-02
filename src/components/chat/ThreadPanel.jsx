@@ -84,9 +84,20 @@ useEffect(() => {
 
   if (!threadMessage) return null;
 
+  <div className="fixed inset-0 bg-black/40 sm:hidden" onClick={closeThread} />
 
   return (
-    <div className="w-[380px] pr-5 border-l bg-white flex flex-col h-full">
+    <div className="
+      fixed sm:relative 
+      right-0 top-0 
+      h-full 
+      w-full sm:w-[380px] 
+      z-50 sm:z-auto 
+      bg-white 
+      border-l 
+      flex flex-col
+      ">
+
 
       {/* HEADER */}
       <div className="sticky top-0 z-10 bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">

@@ -7,6 +7,7 @@ import BookmarkSidebar from "../chat/BookmarkDialog";
 
 export default function MainLayout() {
   const [showBookmarks, setShowBookmarks] = useState(false);
+   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   //  message refs for jump
   const messageRefs = useRef({});
@@ -42,36 +43,58 @@ export default function MainLayout() {
 }, []);
 
   return (
-    <div className="h-screen flex bg-[#f8fafc] overflow-hidden">
+    <div className="h-screen flex bg-[#f8fafc] overflow-hidden relative">
 
-      <WorkspaceBar />
-      <Sidebar />
+      {/* 🔹 MOBILE OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <div className="flex-1 flex">
+      {/* 🔹 WORKSPACE BAR (hidden on mobile) */}
+      <div className="hidden lg:flex">
+        <WorkspaceBar />
+      </div>
 
-        {/* CHAT AREA */}
-        <div className="flex-1 flex flex-col">
-          <ChatHeader
-            showBookmarks={showBookmarks}
-            setShowBookmarks={setShowBookmarks}
-            onJump={scrollToMessage} 
-          />
+      {/* 🔹 SIDEBAR */}
+      <div
+        className={`
+          fixed lg:static z-50 
+          top-0 left-0 h-full 
+          w-64 bg-white border-r
+          transform transition-transform duration-300
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0
+        `}
+      >
+        <Sidebar onClose={() => setSidebarOpen(false)} />
+      </div>
 
-          <ChatWindow messageRefs={messageRefs} />
-        </div>
+      {/* 🔹 MAIN CONTENT */}
+      <div className="flex-1 flex flex-col min-w-0">
 
-        {/* RIGHT SIDEBAR */}
-        {showBookmarks && (
-          <div className="animate-in slide-in-from-right">
-            <BookmarkSidebar
-              onJump={scrollToMessage}
-              onClose={() => setShowBookmarks(false)}
-            />
-          </div>
-        )}
+        <ChatHeader
+          showBookmarks={showBookmarks}
+          setShowBookmarks={setShowBookmarks}
+          onJump={scrollToMessage}
+          onMenuClick={() => setSidebarOpen(true)} // ✅ pass toggle
+        />
 
+        <ChatWindow messageRefs={messageRefs} />
 
       </div>
+
+      {/* 🔹 BOOKMARK SIDEBAR */}
+      {showBookmarks && (
+        <div className="fixed lg:static right-0 top-0 h-full z-50 w-full sm:w-[350px] animate-in slide-in-from-right">
+          <BookmarkSidebar
+            onJump={scrollToMessage}
+            onClose={() => setShowBookmarks(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

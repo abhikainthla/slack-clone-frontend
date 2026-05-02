@@ -286,9 +286,21 @@ const handleSend = async () => {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
-      className="fixed bottom-0 left-0 w-full flex justify-center px-4"
-    >
-      <div className="w-full max-w-3xl bg-white border shadow-2xl rounded-2xl relative">
+      className="fixed bottom-0 left-0 w-full 
+      flex justify-center 
+      px-2 sm:px-4 
+      pb-2 sm:pb-4
+      "
+      >
+      <div className="
+        w-full 
+        max-w-full sm:max-w-2xl md:max-w-3xl 
+        bg-white border 
+        shadow-xl 
+        rounded-xl sm:rounded-2xl 
+        relative
+        ">
+
 
                 {/* ================= MENTION LIST ================= */}
             {showMention && filteredUsers.length > 0 && (
@@ -406,14 +418,20 @@ const handleSend = async () => {
                   : `Message #${activeChannel?.name}`
               }
 
-              className="flex-1 resize-none outline-none text-sm px-3 py-2 max-h-40"
+              className="
+              flex-1 resize-none outline-none 
+              text-sm 
+              px-2 sm:px-3 py-2 
+              max-h-32 sm:max-h-40
+              "
+
             />
 
 
             <button
               onClick={handleSend}
               disabled={isSending}
-              className="p-2 rounded-xl bg-blue-600 text-white"
+              className="p-2 sm:p-2.5 rounded-xl bg-blue-600 text-white"
             >
               {isSending ? (
                 <Loader2 size={18} className="animate-spin" />

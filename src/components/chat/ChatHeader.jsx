@@ -6,8 +6,9 @@ import RoleBadge from "../common/RoleBadge";
 import { Settings } from "lucide-react";
 import BookmarkDialog from "./BookmarkDialog";
 import PinnedDialog from "./PinnedDialog";
+import { Menu } from "lucide-react";
 
-export default function ChatHeader({ onJump }) {
+export default function ChatHeader({ onJump, onMenuClick }) {
   const [open, setOpen] = useState(false);
 
 
@@ -24,6 +25,15 @@ const role =
   return (
     <>
       <header className="border-b h-16 flex items-center px-6 bg-white shrink-0">
+
+        {/* MOBILE MENU BUTTON */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden mr-3 p-2 hover:bg-gray-100 rounded-md"
+        >
+          <Menu size={20} />
+        </button>
+
         {(activeChannel?._id || isDM) ? (
           <div className="flex items-center justify-between w-full">
 

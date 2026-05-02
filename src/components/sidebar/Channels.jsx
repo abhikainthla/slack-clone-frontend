@@ -81,7 +81,7 @@ const setStoredChannelUnread = (data) =>
   }
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 overflow-hidden">
       <div className="flex justify-between items-center mb-2">
         <h1 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">CHANNELS</h1>
         {canCreate && (

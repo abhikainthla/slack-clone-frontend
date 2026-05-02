@@ -203,7 +203,7 @@ const handleMarkAsRead = async () => {
   const colors = ["bg-purple-500", "bg-blue-500", "bg-green-500", "bg-orange-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500"];
 
   return (
-    <div className="w-64 bg-white border-r p-4 flex flex-col h-full">
+    <div className="w-64 sm:w-72 bg-white border-r p-3 sm:p-4 flex flex-col h-full">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3 overflow-hidden">
@@ -346,7 +346,7 @@ const handleMarkAsRead = async () => {
       <Dialog.Root open={updateOpen} onOpenChange={setUpdateOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-8 rounded-2xl w-[520px] shadow-2xl z-50 border border-slate-100">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-8 rounded-2xl w-[90vw] max-w-[520px] shadow-2xl z-50 border border-slate-100">
             <div className="flex justify-between items-center mb-6">
               <Dialog.Title className="text-xl font-bold text-slate-900">Update Workspace</Dialog.Title>
               <Dialog.Close asChild>
@@ -449,7 +449,7 @@ const handleMarkAsRead = async () => {
       <Dialog.Root open={removeMemberOpen} onOpenChange={setRemoveMemberOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl w-96 z-50">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl w-[90vw] max-w-md z-50">
             <Dialog.Title className="text-lg font-semibold mb-4 flex items-center justify-between">
               Remove Member
               <Dialog.Close asChild>
@@ -490,7 +490,7 @@ const handleMarkAsRead = async () => {
       <Dialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl w-96 z-50">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl w-[90vw] max-w-md z-50">
             <Dialog.Title className="text-lg font-semibold mb-4 flex items-center justify-between">
               Delete Workspace
               <Dialog.Close asChild>
@@ -532,7 +532,7 @@ const handleMarkAsRead = async () => {
       <Dialog.Root open={inviteOpen} onOpenChange={(val) => { setInviteOpen(val); if(!val) setInviteLink(""); }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl w-96 z-50 shadow-2xl">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-2xl">
             <Dialog.Title className="text-lg font-semibold mb-2">Invite to {workspace?.name}</Dialog.Title>
             <p className="text-sm text-gray-500 mb-6">
               Anyone with this link will be able to join this workspace as a member.

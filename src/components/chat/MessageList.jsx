@@ -441,7 +441,14 @@ useEffect(() => {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex flex-col flex-1 min-w-0 bg-gray-50 p-4 pb-28 space-y-3 overflow-y-auto"
+        className="
+        flex flex-col flex-1 min-w-0 
+        bg-gray-50 
+        px-3 sm:px-4 md:px-6 
+        py-3 pb-32 
+        space-y-3 
+        overflow-y-auto
+        "
       >
         {loadingMore && (
           <div className="text-center text-xs text-gray-400">

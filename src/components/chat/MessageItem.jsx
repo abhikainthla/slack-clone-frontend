@@ -174,11 +174,17 @@ const handleBookmark = async () => {
 
 
   return (
-    <div className="flex gap-3 group hover:bg-gray-100 p-3 rounded-lg relative">
+    <div className="
+      flex gap-2 sm:gap-3 
+      group hover:bg-gray-100 
+      p-2 sm:p-3 
+      rounded-lg relative
+      ">
+
 
       {/* Avatar */}
       <div className="relative">
-        <div className="w-10 h-10 rounded-full overflow-hidden">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden">
         {message?.sender?.avatar ? (
           <img
             src={message.sender.avatar}
@@ -207,7 +213,7 @@ const handleBookmark = async () => {
       <div className="flex-1">
 
         {/* Header */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <p className="font-medium text-sm">
             {message?.sender?.name || "Unknown"}
           </p>
@@ -240,7 +246,7 @@ const handleBookmark = async () => {
 {/* INTEGRATED CONTENT & FILES */}
         <div className="mt-1 flex flex-col gap-2">
           {message.content && (
-            <div className="text-sm break-words whitespace-pre-wrap">
+            <div className="text-sm break-words whitespace-pre-wrap max-w-full">
               {message.content.includes("```") ? (
                 <pre className="bg-gray-900 text-white p-3 rounded-lg overflow-x-auto my-1">
                   <code className="language-js">{message.content.replace(/```/g, "")}</code>
@@ -271,7 +277,7 @@ const handleBookmark = async () => {
                     <img
                       key={idx}
                       src={url}
-                      className="w-40 h-32 object-cover rounded-lg cursor-pointer hover:scale-105 transition"
+                      className="w-28 sm:w-40 h-24 sm:h-32 object-cover rounded-lg cursor-pointer hover:scale-105 transition"
                       onClick={() => setPreviewFile({ url, type: "image" })}
                     />
                   );
@@ -290,7 +296,7 @@ const handleBookmark = async () => {
 
                 if (isAudio) {
                   return (
-                    <audio key={idx} src={url} controls className="w-48" />
+                    <audio key={idx} src={url} controls className="w-full max-w-[220px]"/>
                   );
                 }
 
@@ -455,7 +461,17 @@ const handleBookmark = async () => {
 
 
       {/* Actions */}
-      <div className="absolute shadow-lg  rounded-lg bg-white text-gray-500 right-2 top-2 hidden group-hover:flex gap-2">
+      <div className="
+        absolute 
+        shadow-md 
+        rounded-lg 
+        bg-white text-gray-500 
+        right-1 sm:right-2 
+        top-1 sm:top-2 
+        hidden group-hover:flex 
+        gap-1 sm:gap-2
+        "
+        >
         <button onClick={() => setShowPicker(!showPicker)} className="p-2 rounded-lg hover:bg-violet-100"><SmilePlus size={16} /></button>
         <button onClick={handlePin} className="p-2 rounded-lg hover:bg-violet-100">
           {message?.pinned ?  <PinOff size={16} /> : <Pin size={16}/>}

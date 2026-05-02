@@ -72,7 +72,12 @@ useEffect(() => {
 
       {/* THREAD PANEL (SIDEBAR) */}
       {threadMessage && (
-        <div className="w-[350px] border-l bg-white flex-shrink-0">
+        <div className="
+          fixed lg:static
+          right-0 top-0 h-full
+          w-full sm:w-[350px]
+          border-l bg-white z-50
+        ">
           <ThreadPanel />
         </div>
       )}
